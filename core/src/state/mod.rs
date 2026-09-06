@@ -213,6 +213,22 @@ impl Scene {
         out
     }
 
+    /// Canonical form used for encoding: quantized positions and overrides
+    /// sorted by key, so that scenes differing only in override order
+    /// produce identical URLs (PLAN.md § 8.6 group C).
+    #[must_use]
+    pub fn canonicalized(&self) -> Scene {
+        let mut out = self.quantized();
+        out.overrides.sort_by(|a, b| {
+            a.key.cmp(&b.key).then_with(|| {
+                a.value
+                    .partial_cmp(&b.value)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
+        });
+        out
+    }
+
     /// Validate against limits for untrusted input (PLAN.md § 7.5).
     pub fn validate(&self) -> Result<(), StateError> {
         if self.atoms.len() > MAX_ATOMS {
@@ -292,7 +308,7 @@ impl Scene {
     /// Encode to the compact URL payload (`v1.<base64url>`), without fragment.
     pub fn encode(&self) -> Result<String, StateError> {
         self.validate()?;
-        let json = self.quantized().canonical_json()?;
+        let json = self.canonicalized().canonical_json()?;
         if json.len() > MAX_JSON_LEN {
             return Err(StateError::TooLarge {
                 bytes: json.len(),

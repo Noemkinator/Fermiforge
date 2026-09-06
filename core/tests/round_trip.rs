@@ -56,7 +56,7 @@ fn roundtrip_huckel_scene() {
     let scene = benzene();
     let encoded = scene.to_url_fragment().expect("encode");
     let decoded = Scene::from_url_fragment(&encoded).expect("decode");
-    assert_eq!(scene.quantized(), decoded);
+    assert_eq!(scene.canonicalized(), decoded);
 }
 
 #[test]
