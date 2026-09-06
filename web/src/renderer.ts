@@ -145,9 +145,9 @@ export class Renderer {
       minX = Math.min(minX, a.x); maxX = Math.max(maxX, a.x);
       minY = Math.min(minY, a.y); maxY = Math.max(maxY, a.y);
     }
-    const spanX = Math.max(maxX - minX, 1.0);
-    const spanY = Math.max(maxY - minY, 1.0);
-    const s = Math.min(1.7 / spanX, (1.7 * aspect) / spanY);
+    const spanX = Math.max(maxX - minX, 1.0) + 1.4;
+    const spanY = Math.max(maxY - minY, 1.0) + 1.4;
+    const s = Math.min(1.8 / spanX, (1.8 * aspect) / spanY);
     this.scale = [s, s / aspect];
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
     this.offset = [-cx * this.scale[0], -cy * this.scale[1]];
@@ -168,12 +168,27 @@ export class Renderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
     this.fit(atoms);
 
-    // bonds
-    const lineData = new Float32Array(bonds.length * 4);
-    bonds.forEach(([i, j], k) => {
-      if (!atoms[i] || !atoms[j]) return;
-      lineData.set([...this.toClip(atoms[i].x, atoms[i].y), ...this.toClip(atoms[j].x, atoms[j].y)], k * 4);
-    });
+    // bonds as screen-space-thick quads (gl.LINES is capped at 1px)
+    const w2 = this.canvas.width / 2, h2 = this.canvas.height / 2;
+    const lineData = new Float32Array(bonds.length * 12);
+    let nverts = 0;
+    for (const [i, j] of bonds) {
+      if (!atoms[i] || !atoms[j]) continue;
+      const [ax, ay] = this.toClip(atoms[i].x, atoms[i].y);
+      const [bx, by] = this.toClip(atoms[j].x, atoms[j].y);
+      // perpendicular in pixel space for uniform visual width
+      const px1 = ax * w2, py1 = ay * h2, px2 = bx * w2, py2 = by * h2;
+      let dx = px2 - px1, dy = py2 - py1;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = (-dy / len) * 1.6, ny = (dx / len) * 1.6;
+      const q = [
+        [px1 + nx, py1 + ny], [px1 - nx, py1 - ny],
+        [px2 + nx, py2 + ny], [px2 - nx, py2 - ny],
+      ].map(([x, y]) => [x / w2, y / h2]);
+      lineData.set([q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1],
+        q[2][0], q[2][1], q[1][0], q[1][1], q[3][0], q[3][1]], nverts * 2);
+      nverts += 6;
+    }
     gl.useProgram(this.line);
     gl.bindVertexArray(this.lineVao);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.lineBuf);
@@ -181,10 +196,10 @@ export class Renderer {
     const lp = gl.getAttribLocation(this.line, "pos");
     gl.enableVertexAttribArray(lp);
     gl.vertexAttribPointer(lp, 2, gl.FLOAT, false, 0, 0);
-    gl.uniform2fv(gl.getUniformLocation(this.line, "scale"), this.scale);
-    gl.uniform2fv(gl.getUniformLocation(this.line, "offset"), this.offset);
+    gl.uniform2f(gl.getUniformLocation(this.line, "scale"), 1, 1);
+    gl.uniform2f(gl.getUniformLocation(this.line, "offset"), 0, 0);
     gl.uniform4f(gl.getUniformLocation(this.line, "color"), 0.55, 0.6, 0.7, 0.9);
-    gl.drawArrays(gl.LINES, 0, bonds.length * 2);
+    gl.drawArrays(gl.TRIANGLES, 0, nverts);
 
     const drawDiscs = (
       vao: WebGLVertexArrayObject,
@@ -219,16 +234,17 @@ export class Renderer {
     // MO lobes under atoms
     const lobeData = new Float32Array(lobes.length * 7);
     lobes.forEach((l, k) => {
-      const col = l.sign >= 0 ? [0.9, 0.35, 0.2, 0.5] : [0.2, 0.45, 0.95, 0.5];
+      const col = l.sign >= 0 ? [0.9, 0.35, 0.2, 0.42] : [0.2, 0.45, 0.95, 0.42];
       lobeData.set([l.x, l.y, l.radius, ...col], k * 7);
     });
     drawDiscs(this.lobeVao, this.lobeBuf, lobeData, lobes.length);
 
-    // atoms
+    // atoms: small CPK-tinted discs, lightened for the dark background
     const atomData = new Float32Array(atoms.length * 7);
     atoms.forEach((a, k) => {
       const rgb = CPK[a.symbol] ?? [0.7, 0.7, 0.4];
-      atomData.set([a.x, a.y, 0.42, rgb[0], rgb[1], rgb[2], 1], k * 7);
+      const light = (c: number) => Math.min(1, c * 0.7 + 0.42);
+      atomData.set([a.x, a.y, 0.18, light(rgb[0]), light(rgb[1]), light(rgb[2]), 1], k * 7);
     });
     drawDiscs(this.atomVao, this.atomBuf, atomData, atoms.length);
     gl.bindVertexArray(null);

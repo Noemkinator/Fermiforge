@@ -104,13 +104,15 @@ function recompute() {
   render();
 }
 
+$: maxAbs = Math.max(1e-9, ...energies.map((x) => Math.abs(x.value)));
+
 function lobes(): Lobe[] {
   const mo = selectedMo;
   if (mo === null || !coefficients[mo]) return [];
   return scene.atoms.map((a, i) => ({
     x: a.x,
     y: a.y,
-    radius: 0.35 + 2.2 * Math.abs(coefficients[mo][i]),
+    radius: 0.25 + 0.85 * Math.abs(coefficients[mo][i]),
     sign: coefficients[mo][i],
   }));
 }
@@ -174,7 +176,17 @@ function onMove(ev: PointerEvent) {
 function onUp() { dragging = -1; }
 
 function addAtom() {
-  scene.atoms.push({ symbol: "C", x: 0, y: 0, z: 0 });
+  // spiral outward from the centroid until >= 1.3 A from every atom
+  const cx = scene.atoms.reduce((s, a) => s + a.x, 0) / Math.max(scene.atoms.length, 1);
+  const cy = scene.atoms.reduce((s, a) => s + a.y, 0) / Math.max(scene.atoms.length, 1);
+  const maxR = Math.max(0, ...scene.atoms.map((a) => Math.hypot(a.x - cx, a.y - cy)));
+  let x = cx + maxR + 1.4, y = cy;
+  for (let t = 0; t < 200; t += 0.35) {
+    x = cx + (maxR + 1.4 + t * 0.12) * Math.cos(t);
+    y = cy + (maxR + 1.4 + t * 0.12) * Math.sin(t);
+    if (scene.atoms.every((a) => Math.hypot(a.x - x, a.y - y) >= 1.3)) break;
+  }
+  scene.atoms.push({ symbol: "C", x: +x.toFixed(2), y: +y.toFixed(2), z: 0 });
   scene = scene;
   recompute();
   scheduleUrl();
@@ -239,7 +251,7 @@ onMount(async () => {
           class:lumo={lumo === i}
           on:click={() => { selectedMo = selectedMo === i ? null : i; render(); }}
         >
-          <span class="level" style="width: {6 + Math.abs(e.value) * 18}px"></span>
+          <span class="bar"><i style="left: {e.value < 0 ? 50 - (Math.abs(e.value) / maxAbs) * 50 : 50}%; width: {(Math.abs(e.value) / maxAbs) * 50}%"></i></span>
           {e.value.toFixed(3)}
           {#if homo === i}<em>HOMO</em>{/if}
           {#if lumo === i}<em>LUMO</em>{/if}
@@ -273,7 +285,15 @@ onMount(async () => {
   aside button.selected { outline: 1px solid #6ea8ff; }
   aside button.homo em { color: #ffb066; }
   aside button.lumo em { color: #6ea8ff; }
-  .level { display: inline-block; height: 2px; background: #8b93a7; }
+  .bar { position: relative; display: inline-block; width: 54px; height: 2px; background: #333d52; }
+  .bar i { position: absolute; top: -1px; height: 4px; background: #9aa3b8; }
+  .bar::after { content: ""; position: absolute; left: 50%; top: -3px; width: 1px; height: 8px; background: #5a6376; }
+  @media (max-width: 720px) {
+    .tag { display: none; }
+    section { flex-direction: column; }
+    canvas { flex: none; height: 52vh; }
+    aside { width: auto; border-left: none; border-top: 1px solid #262b38; }
+  }
   .stat { font-size: 13px; }
   .note { font-size: 11px; color: #8b93a7; }
   em { font-style: normal; font-size: 11px; }
