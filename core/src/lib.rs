@@ -1,0 +1,9 @@
+//! Fermiforge physics core.
+//!
+//! All physics lives here: no DOM, no WebGL, no networking.
+//! No concrete physical constant may appear in this crate outside of tests —
+//! every value arrives from `data/` through the provenance-tracked
+//! [`value::Value`] type (PLAN.md § 13.2–13.3).
+
+pub mod state;
+pub mod value;
