@@ -3,7 +3,24 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="Cache-Control" content="no-cache" />
     <title>Fermiforge</title>
+    <script>
+      window.addEventListener(
+        "error",
+        function (e) {
+          if (
+            e.target &&
+            e.target.tagName === "SCRIPT" &&
+            !sessionStorage.getItem("ff-reload")
+          ) {
+            sessionStorage.setItem("ff-reload", "1");
+            location.reload();
+          }
+        },
+        true
+      );
+    </script>
   </head>
   <body>
     <div id="app"></div>
