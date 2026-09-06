@@ -55,6 +55,33 @@ function valueOf(id: string, fallback: number) {
   return m ? m.value : fallback;
 }
 
+const PARAMS = [
+  { id: "models/huckel/alpha_eV", label: "α (eV)", fallback: 0.0 },
+  { id: "models/huckel/beta_eV", label: "β (eV)", fallback: -2.7 },
+];
+
+function param(id: string, fallback: number) {
+  const o = scene.overrides.find((x) => x.key === id);
+  if (o) return { value: parseFloat(String(o.value)), source: "user", edition: "user override" };
+  const m = models[id];
+  return {
+    value: m ? m.value : fallback,
+    source: m?.source ?? "literature",
+    edition: m?.edition ?? "Pauling-1960",
+  };
+}
+
+function setOverride(id: string, fallback: number, raw: string) {
+  const v = parseFloat(raw);
+  if (!Number.isFinite(v)) return;
+  const base = valueOf(id, fallback);
+  scene.overrides = scene.overrides.filter((o) => o.key !== id);
+  if (v !== base) scene.overrides.push({ key: id, value: String(v) });
+  scene = scene;
+  recompute();
+  scheduleUrl();
+}
+
 // core Atom serde uses integer multiples of 0.01 A; UI works in angstroms
 function toWire(s: Scene) {
   return {
@@ -65,6 +92,7 @@ function toWire(s: Scene) {
       y: Math.round(a.y * 100),
       z: Math.round(a.z * 100),
     })),
+    overrides: s.overrides.map((o) => ({ key: o.key, value: String(o.value) })),
   };
 }
 
@@ -78,12 +106,12 @@ function fromWire(w: Scene): Scene {
 function recompute() {
   if (!ready) return;
   try {
-    const cutoff = { value: valueOf("models/huckel/bond_cutoff_angstrom", 1.6), source: models["models/huckel/bond_cutoff_angstrom"]?.source ?? "literature", edition: models["models/huckel/bond_cutoff_angstrom"]?.edition ?? "Pauling-1960" };
+    const cutoff = param("models/huckel/bond_cutoff_angstrom", 1.6);
     const bonds: [number, number][] = scene.bonds.length > 0
       ? scene.bonds
       : JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
-    const alpha = { value: valueOf("models/huckel/alpha_eV", 0.0), source: models["models/huckel/alpha_eV"]?.source ?? "literature", edition: models["models/huckel/alpha_eV"]?.edition ?? "Pauling-1960" };
-    const beta = { value: valueOf("models/huckel/beta_eV", -2.7), source: models["models/huckel/beta_eV"]?.source ?? "literature", edition: models["models/huckel/beta_eV"]?.edition ?? "Pauling-1960" };
+    const alpha = param("models/huckel/alpha_eV", 0.0);
+    const beta = param("models/huckel/beta_eV", -2.7);
     const res = JSON.parse(solve_simple_huckel(JSON.stringify({
       nAtoms: scene.atoms.length,
       bonds,
@@ -125,7 +153,7 @@ function render() {
   const bonds: [number, number][] = scene.bonds.length > 0
     ? scene.bonds
     : (() => { try {
-        const cutoff = { value: valueOf("models/huckel/bond_cutoff_angstrom", 1.6), source: "x", edition: "x" };
+        const cutoff = param("models/huckel/bond_cutoff_angstrom", 1.6);
         return JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
       } catch { return []; } })();
   renderer.draw(atoms, bonds, lobes());
@@ -259,6 +287,24 @@ onMount(async () => {
       {/each}
       {#if gap !== null}<p class="stat">HOMO–LUMO gap: <strong>{gap.toFixed(3)} eV</strong></p>{/if}
       {#if totalEnergy !== null}<p class="stat">total π energy: <strong>{totalEnergy.toFixed(3)} eV</strong></p>{/if}
+      <h2>model parameters</h2>
+      {#each PARAMS as p}
+        {@const ov = scene.overrides.find((o) => o.key === p.id)}
+        {@const eff = param(p.id, p.fallback)}
+        <label class="param" class:user={!!ov}>
+          <span>{p.label}</span>
+          <input
+            type="number"
+            step="0.1"
+            value={eff.value}
+            on:change={(e) => setOverride(p.id, p.fallback, e.currentTarget.value)}
+          />
+          {#if ov}
+            <button class="reset" on:click={() => setOverride(p.id, p.fallback, String(valueOf(p.id, p.fallback)))}>reset</button>
+          {/if}
+          <em class="src">{ov ? "user (base " + valueOf(p.id, p.fallback) + ")" : eff.source}</em>
+        </label>
+      {/each}
       <p class="note">
         energies are derived values (provenance: α, β from data/models.json,
         method simple-huckel/linear-in-alpha-beta). Drag atoms; link updates live.
@@ -286,6 +332,13 @@ onMount(async () => {
   aside button.homo em { color: #ffb066; }
   aside button.lumo em { color: #6ea8ff; }
   .bar { position: relative; display: inline-block; width: 54px; height: 2px; background: #333d52; }
+  .param { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+  .param > span { white-space: nowrap; min-width: 44px; }
+  .param input { width: 70px; background: #1a1f2b; color: #dfe3ec; border: 1px solid #333d52; border-radius: 4px; padding: 3px 6px; }
+  .param.user input { border-color: #ffb066; }
+  .param.user > span { color: #ffb066; }
+  .param .reset { padding: 2px 8px; font-size: 12px; }
+  .param .src { font-style: normal; color: #8b93a7; font-size: 11px; }
   .bar i { position: absolute; top: -1px; height: 4px; background: #9aa3b8; }
   .bar::after { content: ""; position: absolute; left: 50%; top: -3px; width: 1px; height: 8px; background: #5a6376; }
   @media (max-width: 720px) {
