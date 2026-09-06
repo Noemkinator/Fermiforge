@@ -8,3 +8,6 @@
 pub mod huckel;
 pub mod state;
 pub mod value;
+
+#[cfg(target_arch = "wasm32")]
+pub mod wasm;

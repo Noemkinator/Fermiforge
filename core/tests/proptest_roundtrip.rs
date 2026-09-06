@@ -1,6 +1,8 @@
 //! Property-based round-trip tests (PLAN.md § 8.6 group C).
 //! Ignored in daily CI; the nightly workflow runs them with PROPTEST_CASES=100000.
 
+#![cfg(not(target_arch = "wasm32"))]
+
 use fermiforge_core::state::{Atom, Mode, Override, Scene};
 use proptest::option;
 use proptest::prelude::*;

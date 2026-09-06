@@ -52,7 +52,8 @@ jobs:
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Match wasm-bindgen-cli to the crate version (PLAN.md § 10.2)
         run: |
-          WBG=$(cargo tree -p fermiforge-core -i wasm-bindgen 2>/dev/null \
+          WBG=$(cargo tree -p fermiforge-core -i wasm-bindgen \
+            --target wasm32-unknown-unknown 2>/dev/null \
             | head -n1 | sed -E 's/.*wasm-bindgen v([^ ]+).*/\1/' || true)
           if [ -n "$WBG" ]; then
             echo "Installing wasm-bindgen-cli $WBG"
