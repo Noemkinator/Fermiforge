@@ -84,12 +84,13 @@ function recompute() {
 }
 
 function lobes(): Lobe[] {
-  if (selectedMo === null || !coefficients[selectedMo]) return [];
+  const mo = selectedMo;
+  if (mo === null || !coefficients[mo]) return [];
   return scene.atoms.map((a, i) => ({
     x: a.x,
     y: a.y,
-    radius: 0.35 + 2.2 * Math.abs(coefficients[selectedMo][i]),
-    sign: coefficients[selectedMo][i],
+    radius: 0.35 + 2.2 * Math.abs(coefficients[mo][i]),
+    sign: coefficients[mo][i],
   }));
 }
 
@@ -173,7 +174,7 @@ onMount(async () => {
   renderer = new Renderer(canvas);
   await init();
   try {
-    models = (await (await fetch("data/models.json")).json()).values;
+    models = (await (await fetch("./models.json")).json()).values;
   } catch { /* offline fallback defaults */ }
   if (location.hash.startsWith("#/s=")) {
     try {
