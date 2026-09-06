@@ -37,6 +37,7 @@ Enforced by `python -m ingest.validate` (CI `data-integrity` job):
 | `constants.json` | CODATA via `scipy.constants` | CODATA 2022 | α, mass equivalents, MeV |
 | `basis_sto3g.json` | Basis Set Exchange | 1.0 | STO-3G exponents/coefficients (H, C) |
 | `nuclei.json` | IAEA LiveChart / AME | AME2020 | mass excess + binding energy, MeV |
+| `models.json` | literature | Pauling-1960 | labeled semi-empirical model parameters |
 | `manifest.json` | — | — | per-file source/edition/fetched/sha256 |
 
 ## Status of the current snapshot

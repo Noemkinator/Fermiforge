@@ -1,0 +1,15 @@
+{
+  "generated": "2026-09-06",
+  "schema_version": 0,
+  "values": {
+    "models/huckel/bond_cutoff_angstrom": {
+      "edition": "Pauling-1960",
+      "fetched": "2026-09-06",
+      "id": "models/huckel/bond_cutoff_angstrom",
+      "method": "approximation: single global cutoff for covalent bond perception",
+      "source": "literature",
+      "url": "https://en.wikipedia.org/wiki/Covalent_radius (C-C 1.54 A, general 1.6 A cutoff)",
+      "value": 1.6
+    }
+  }
+}

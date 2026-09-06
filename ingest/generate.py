@@ -17,7 +17,7 @@ import types
 from pathlib import Path
 
 from ingest import validate
-from ingest.sources import bse, codata, iaea, pdg
+from ingest.sources import bse, codata, iaea, models, pdg
 from ingest.value import Value
 
 REPO = Path(__file__).resolve().parents[1]
@@ -71,6 +71,11 @@ def _nuclei(offline: bool, fetched: str) -> dict:
     return {"schema_version": SCHEMA_VERSION, "generated": fetched, "values": _values_block(values)}
 
 
+def _models(offline: bool, fetched: str) -> dict:
+    values = models.parse(fetched=fetched)
+    return {"schema_version": SCHEMA_VERSION, "generated": fetched, "values": _values_block(values)}
+
+
 def _basis(offline: bool, fetched: str) -> dict:
     if offline:
         payload = _load_fixture("bse_sto3g.json")
@@ -101,6 +106,7 @@ def main(argv: list[str]) -> int:
         "particles.json": (_particles(args.offline, fetched), "PDG", pdg.EDITION),
         "constants.json": (_constants(args.offline, fetched), "CODATA", "via scipy.constants"),
         "nuclei.json": (_nuclei(args.offline, fetched), "IAEA/AME", iaea.EDITION),
+        "models.json": (_models(args.offline, fetched), "literature", models.EDITION),
         "basis_sto3g.json": (_basis(args.offline, fetched), "BSE", "1.0"),
     }
 

@@ -12,6 +12,12 @@
       "sha256": "1e208f5174db0680b667b147e41e3d072a0253c762e29d80da9dbddf989c7891",
       "source": "CODATA"
     },
+    "models.json": {
+      "edition": "Pauling-1960",
+      "fetched": "2026-09-06",
+      "sha256": "8efb09bd53b795bb3fd38b6130b29696e0219abf376e85725b3f0f5bf9a129b7",
+      "source": "literature"
+    },
     "nuclei.json": {
       "edition": "AME2020",
       "fetched": "2026-09-06",

@@ -11,8 +11,28 @@
 // Linear-algebra kernels index by design; range loops keep them readable.
 #![allow(clippy::needless_range_loop)]
 
+use crate::state::Atom;
 use crate::value::Value;
 use thiserror::Error;
+
+/// Derive bonds from geometry: every atom pair closer than `cutoff` Å.
+/// The cutoff is a labeled model parameter arriving from `data/models.json`
+/// (approximation, PLAN.md § 13.8), never a constant in this crate.
+#[must_use]
+pub fn derive_bonds(atoms: &[Atom], cutoff: &Value) -> Vec<(usize, usize)> {
+    let mut bonds = Vec::new();
+    for i in 0..atoms.len() {
+        for j in i + 1..atoms.len() {
+            let d = (atoms[i].x - atoms[j].x).powi(2)
+                + (atoms[i].y - atoms[j].y).powi(2)
+                + (atoms[i].z - atoms[j].z).powi(2);
+            if d.sqrt() <= cutoff.value {
+                bonds.push((i, j));
+            }
+        }
+    }
+    bonds
+}
 
 /// Errors of the Hückel engine.
 #[derive(Debug, Clone, PartialEq, Error)]

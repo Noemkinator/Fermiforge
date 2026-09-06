@@ -120,12 +120,14 @@ fn serialization_is_deterministic() {
 fn key_order_is_canonical() {
     let scene = Scene {
         atoms: benzene().atoms,
+        bonds: vec![[0, 1], [1, 2]],
         charge: 1,
         ..muonic_lead()
     };
     let json = scene.canonical_json().expect("canonical json");
     let keys = [
         "\"atoms\"",
+        "\"bonds\"",
         "\"charge\"",
         "\"lepton\"",
         "\"mode\"",
@@ -158,8 +160,8 @@ fn defaults_are_omitted() {
 #[test]
 fn rejects_unknown_version() {
     assert_eq!(
-        Scene::from_url_fragment("v2.abc"),
-        Err(StateError::UnknownVersion("v2".into()))
+        Scene::from_url_fragment("v3.abc"),
+        Err(StateError::UnknownVersion("v3".into()))
     );
     assert_eq!(
         Scene::from_url_fragment("vx.abc"),
@@ -267,6 +269,26 @@ fn rejects_invalid_fields() {
             "expected InvalidField for {json}, got {result:?}"
         );
     }
+}
+
+// ---------- Group E: migration chain ----------
+
+#[test]
+fn migration_chain_v1_to_current() {
+    // Fixture: representative scene serialized with the v1 encoder.
+    let fixture = include_str!("fixtures/scene_v1.txt");
+    let decoded = Scene::from_url_fragment(fixture.trim()).expect("v1 fixture must decode");
+    assert_eq!(decoded.schema, fermiforge_core::state::SCHEMA_VERSION);
+    assert_eq!(decoded.mode, Mode::Atom);
+    assert_eq!(decoded.atoms.len(), 6);
+    assert!(decoded.bonds.is_empty(), "v1 migrates to derived bonds");
+    assert_eq!(decoded.nucleus_z, Some(82));
+    assert_eq!(decoded.lepton.as_deref(), Some("muon"));
+    assert_eq!(decoded.overrides.len(), 1);
+    assert_eq!(decoded.overrides[0].value, 0.007_297_352_56);
+    // and the migrated scene re-encodes losslessly
+    let re = decoded.encode().expect("re-encode");
+    assert_eq!(Scene::from_url_fragment(&re).expect("decode v2"), decoded);
 }
 
 #[test]

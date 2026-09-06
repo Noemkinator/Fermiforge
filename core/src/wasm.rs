@@ -28,6 +28,23 @@ pub fn encode_scene_fragment(scene_json: &str) -> Result<String, JsValue> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BondsRequest {
+    atoms: Vec<crate::state::Atom>,
+    cutoff: Value,
+}
+
+/// Derive bonds from geometry. Input `{ atoms: [Atom], cutoff: Value }`,
+/// output `[[i, j], ...]`.
+#[wasm_bindgen]
+pub fn derive_bonds(request_json: &str) -> Result<String, JsValue> {
+    let req: BondsRequest = serde_json::from_str(request_json).map_err(to_js)?;
+    let bonds = huckel::derive_bonds(&req.atoms, &req.cutoff);
+    let response: Vec<[usize; 2]> = bonds.into_iter().map(|(i, j)| [i, j]).collect();
+    serde_json::to_string(&response).map_err(to_js)
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HuckelRequest {
     n_atoms: usize,

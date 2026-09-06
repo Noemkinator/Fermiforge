@@ -169,6 +169,28 @@ fn too_many_electrons_is_rejected() {
 }
 
 #[test]
+fn derive_bonds_from_geometry() {
+    let cutoff = Value::from_source(1.6, None, "literature", "Pauling-1960", None, None, None)
+        .expect("cutoff");
+    let atoms: Vec<fermiforge_core::state::Atom> = (0..6)
+        .map(|k| {
+            let a = std::f64::consts::FRAC_PI_3 * k as f64;
+            fermiforge_core::state::Atom {
+                symbol: "C".to_string(),
+                x: 1.39 * a.cos(),
+                y: 1.39 * a.sin(),
+                z: 0.0,
+            }
+        })
+        .collect();
+    let derived = fermiforge_core::huckel::derive_bonds(&atoms, &cutoff);
+    assert_eq!(derived.len(), 6, "benzene ring: {derived:?}");
+    // solving with the derived bonds reproduces the analytic spectrum
+    let sol = fermiforge_core::huckel::simple_huckel(6, &derived, &alpha(), &beta(), 6).unwrap();
+    assert!((sol.total_energy() + 8.0).abs() < 0.02);
+}
+
+#[test]
 fn determinism_same_input_same_output() {
     let run = || {
         fermiforge_core::huckel::simple_huckel(6, &benzene_bonds(), &alpha(), &beta(), 6)

@@ -34,6 +34,7 @@ fn arb_scene() -> impl Strategy<Value = Scene> {
                 schema: fermiforge_core::state::SCHEMA_VERSION,
                 mode: if atom_mode { Mode::Atom } else { Mode::Huckel },
                 atoms,
+                bonds: Vec::new(),
                 charge,
                 overrides,
                 lepton: lepton.map(str::to_string),

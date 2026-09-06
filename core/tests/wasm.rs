@@ -10,9 +10,9 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 #[wasm_bindgen_test]
 fn empty_scene_fragment_roundtrips_in_browser() {
-    let json = r#"{"schema":1}"#;
+    let json = r#"{"schema":2}"#;
     let fragment = encode_scene_fragment(json).expect("encode");
-    assert!(fragment.starts_with("#/s=v1."));
+    assert!(fragment.starts_with("#/s=v2."));
     let back = decode_scene_fragment(&fragment).expect("decode");
     assert_eq!(back, json);
 }

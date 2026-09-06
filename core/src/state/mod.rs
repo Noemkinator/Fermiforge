@@ -14,9 +14,10 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// Current scene schema version (serialized in every payload).
-pub const SCHEMA_VERSION: u32 = 1;
+/// v2: added explicit `bonds` (v1 scenes migrate to empty = derive from geometry).
+pub const SCHEMA_VERSION: u32 = 2;
 /// URL format version prefix (PLAN.md § 7.5).
-pub const URL_VERSION_PREFIX: &str = "v1.";
+pub const URL_VERSION_PREFIX: &str = "v2.";
 /// Fragment prefix used by the web app: `#/s=<payload>`.
 pub const URL_FRAGMENT_PREFIX: &str = "#/s=";
 
@@ -160,6 +161,10 @@ pub struct Scene {
     pub mode: Mode,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub atoms: Vec<Atom>,
+    /// Explicit pi-system bonds as atom index pairs; empty means "derive
+    /// from geometry" (added in schema v2).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub bonds: Vec<[u16; 2]>,
     #[serde(skip_serializing_if = "is_zero_i32")]
     pub charge: i32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -176,6 +181,7 @@ impl Default for Scene {
             schema: SCHEMA_VERSION,
             mode: Mode::default(),
             atoms: Vec::new(),
+            bonds: Vec::new(),
             charge: 0,
             overrides: Vec::new(),
             lepton: None,
@@ -244,6 +250,15 @@ impl Scene {
                 count: self.overrides.len(),
                 max: MAX_OVERRIDES,
             });
+        }
+        let n_atoms = self.atoms.len();
+        for bond in &self.bonds {
+            if bond[0] as usize >= n_atoms || bond[1] as usize >= n_atoms {
+                return Err(StateError::InvalidField {
+                    field: "bond",
+                    reason: format!("{bond:?} references atom outside 0..{n_atoms}"),
+                });
+            }
         }
         for atom in &self.atoms {
             let bytes = atom.symbol.as_bytes();
@@ -406,8 +421,19 @@ impl Scene {
 /// Rule (PLAN.md § 7.5, § 8.6 group E): every future schema bump adds a step
 /// here plus a stored fixture of an old-version serialization.
 fn migrate_step(from: u32, value: serde_json::Value) -> Result<serde_json::Value, StateError> {
-    let _ = (from, &value);
-    Err(StateError::UnknownVersion(format!(
-        "no migration step defined for schema {from}"
-    )))
+    match from {
+        // v1 -> v2: explicit bonds added; v1 scenes derive them from geometry
+        1 => {
+            let mut map = match value {
+                serde_json::Value::Object(map) => map,
+                _ => return Err(StateError::Corrupted("migration on non-object".into())),
+            };
+            map.insert("bonds".into(), serde_json::json!([]));
+            map.insert("schema".into(), serde_json::json!(2));
+            Ok(serde_json::Value::Object(map))
+        }
+        _ => Err(StateError::UnknownVersion(format!(
+            "no migration step defined for schema {from}"
+        ))),
+    }
 }
