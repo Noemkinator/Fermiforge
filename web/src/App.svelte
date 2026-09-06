@@ -54,13 +54,33 @@ function valueOf(id: string, fallback: number) {
   return m ? m.value : fallback;
 }
 
+// core Atom serde uses integer multiples of 0.01 A; UI works in angstroms
+function toWire(s: Scene) {
+  return {
+    ...s,
+    atoms: s.atoms.map((a) => ({
+      symbol: a.symbol,
+      x: Math.round(a.x * 100),
+      y: Math.round(a.y * 100),
+      z: Math.round(a.z * 100),
+    })),
+  };
+}
+
+function fromWire(w: Scene): Scene {
+  return {
+    ...w,
+    atoms: w.atoms.map((a) => ({ symbol: a.symbol, x: a.x / 100, y: a.y / 100, z: a.z / 100 })),
+  };
+}
+
 function recompute() {
   if (!ready) return;
   try {
     const cutoff = { value: valueOf("models/huckel/bond_cutoff_angstrom", 1.6), source: models["models/huckel/bond_cutoff_angstrom"]?.source ?? "literature", edition: models["models/huckel/bond_cutoff_angstrom"]?.edition ?? "Pauling-1960" };
     const bonds: [number, number][] = scene.bonds.length > 0
       ? scene.bonds
-      : JSON.parse(derive_bonds(JSON.stringify({ atoms: scene.atoms, cutoff })));
+      : JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
     const alpha = { value: valueOf("models/huckel/alpha_eV", 0.0), source: models["models/huckel/alpha_eV"]?.source ?? "literature", edition: models["models/huckel/alpha_eV"]?.edition ?? "Pauling-1960" };
     const beta = { value: valueOf("models/huckel/beta_eV", -2.7), source: models["models/huckel/beta_eV"]?.source ?? "literature", edition: models["models/huckel/beta_eV"]?.edition ?? "Pauling-1960" };
     const res = JSON.parse(solve_simple_huckel(JSON.stringify({
@@ -103,7 +123,7 @@ function render() {
     ? scene.bonds
     : (() => { try {
         const cutoff = { value: valueOf("models/huckel/bond_cutoff_angstrom", 1.6), source: "x", edition: "x" };
-        return JSON.parse(derive_bonds(JSON.stringify({ atoms: scene.atoms, cutoff })));
+        return JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
       } catch { return []; } })();
   renderer.draw(atoms, bonds, lobes());
 }
@@ -112,7 +132,7 @@ function scheduleUrl() {
   clearTimeout(urlTimer);
   urlTimer = setTimeout(() => {
     try {
-      location.hash = encode_scene_fragment(JSON.stringify(scene)).replace(/^#/, "");
+      location.hash = encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, "");
     } catch (e) { error = `URL: ${e}`; }
   }, 500);
 }
@@ -163,7 +183,7 @@ function clearSelection() { selectedMo = null; render(); }
 
 async function copyLink() {
   try {
-    location.hash = encode_scene_fragment(JSON.stringify(scene)).replace(/^#/, "");
+    location.hash = encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, "");
     await navigator.clipboard.writeText(location.href);
     copied = true;
     setTimeout(() => (copied = false), 1500);
@@ -178,7 +198,7 @@ onMount(async () => {
   } catch { /* offline fallback defaults */ }
   if (location.hash.startsWith("#/s=")) {
     try {
-      scene = JSON.parse(decode_scene_fragment(location.hash));
+      scene = fromWire(JSON.parse(decode_scene_fragment(location.hash)));
       if (scene.mode !== "huckel") error = "atom scenes arrive in M3; showing Hückel layer";
     } catch (e) {
       error = `Bad shared link: ${e}. Loaded benzene instead.`;
