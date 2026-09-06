@@ -60,8 +60,13 @@ jobs:
           else
             echo "wasm-bindgen not in dependency tree yet; using wasm-pack default."
           fi
-      - name: wasm-pack test
-        run: wasm-pack test --headless --chrome core || wasm-pack test --headless --firefox core
+      - name: wasm-pack test (group F; skipped until wasm-bindgen lands in M1)
+        run: |
+          if cargo tree -p fermiforge-core -i wasm-bindgen >/dev/null 2>&1; then
+            wasm-pack test --headless --chrome core || wasm-pack test --headless --firefox core
+          else
+            echo "wasm-bindgen not in the dependency tree yet; nothing to run in M0."
+          fi
 
   build:
     name: Release build + size budget
