@@ -34,6 +34,7 @@ const DEFAULT_BENZENE = JSON.stringify({
 });
 
 let canvas: HTMLCanvasElement;
+let labelCanvas: HTMLCanvasElement | undefined;
 let renderer: Renderer;
 let scene: Scene = JSON.parse(DEFAULT_BENZENE);
 let models: Record<string, { value: number; method?: string; source: string; edition: string }> = {};
@@ -157,6 +158,26 @@ function render() {
         return JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
       } catch { return []; } })();
   renderer.draw(atoms, bonds, lobes());
+  drawLabels(dpr);
+}
+
+function drawLabels(dpr: number) {
+  if (!labelCanvas) return;
+  const cw = canvas.clientWidth, ch = canvas.clientHeight;
+  labelCanvas.style.width = cw + "px";
+  labelCanvas.style.height = ch + "px";
+  const w = cw * dpr, h = ch * dpr;
+  if (labelCanvas.width !== w || labelCanvas.height !== h) { labelCanvas.width = w; labelCanvas.height = h; }
+  const ctx = labelCanvas.getContext("2d");
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.fillStyle = "#e6eaf2";
+  for (const a of scene.atoms) {
+    const [cx, cy] = renderer.toClip(a.x + 0.4, a.y + 0.4);
+    ctx.fillText(a.symbol, (cx * 0.5 + 0.5) * cw, (1 - (cy * 0.5 + 0.5)) * ch);
+  }
 }
 
 function scheduleUrl() {
@@ -270,6 +291,7 @@ onMount(async () => {
       on:pointermove={onMove}
       on:pointerup={onUp}
     ></canvas>
+    <canvas bind:this={labelCanvas} class="labels" aria-hidden="true"></canvas>
     <aside>
       <h2>π orbital energies (eV)</h2>
       {#each energies as e, i}
@@ -323,8 +345,9 @@ onMount(async () => {
   button { background: #232a3a; color: #dfe3ec; border: 1px solid #333d52; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
   button:hover { background: #2c3548; }
   .error { background: #4a2030; padding: 6px 16px; }
-  section { flex: 1; display: flex; min-height: 0; }
+  section { flex: 1; display: flex; min-height: 0; position: relative; }
   canvas { flex: 1; min-width: 0; display: block; touch-action: none; cursor: crosshair; }
+  canvas.labels { position: absolute; left: 0; top: 0; pointer-events: none; }
   aside { width: 260px; padding: 12px; border-left: 1px solid #262b38; overflow-y: auto; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #8b93a7; }
   aside button { display: flex; align-items: center; gap: 8px; width: 100%; margin: 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
