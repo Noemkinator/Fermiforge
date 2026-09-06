@@ -33,3 +33,6 @@ __pycache__/
 *.swp
 Thumbs.db
 .DS_Store
+
+test-results/
+playwright-report/
