@@ -8,6 +8,9 @@
 //! No physical constant lives here: `alpha`, `beta` and every later
 //! Extended-Hückel parameter enter as provenance-tracked [`Value`]s.
 
+// Linear-algebra kernels index by design; range loops keep them readable.
+#![allow(clippy::needless_range_loop)]
+
 use crate::value::Value;
 use thiserror::Error;
 
