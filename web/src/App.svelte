@@ -193,6 +193,10 @@ async function copyLink() {
 
 onMount(async () => {
   renderer = new Renderer(canvas);
+  (window as unknown as Record<string, unknown>).__fermiforge = {
+    get scene() { return scene; },
+    renderer,
+  };
   await init();
   try {
     models = (await (await fetch("./models.json")).json()).values;
@@ -262,7 +266,7 @@ onMount(async () => {
   button:hover { background: #2c3548; }
   .error { background: #4a2030; padding: 6px 16px; }
   section { flex: 1; display: flex; min-height: 0; }
-  canvas { flex: 1; touch-action: none; cursor: crosshair; }
+  canvas { flex: 1; min-width: 0; display: block; touch-action: none; cursor: crosshair; }
   aside { width: 260px; padding: 12px; border-left: 1px solid #262b38; overflow-y: auto; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #8b93a7; }
   aside button { display: flex; align-items: center; gap: 8px; width: 100%; margin: 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
