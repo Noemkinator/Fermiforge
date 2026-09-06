@@ -2,6 +2,24 @@
   "generated": "2026-09-06",
   "schema_version": 0,
   "values": {
+    "models/huckel/alpha_eV": {
+      "edition": "Pauling-1960",
+      "fetched": "2026-09-06",
+      "id": "models/huckel/alpha_eV",
+      "method": "approximation: simple Huckel reference energy for C 2p (Coulson)",
+      "source": "literature",
+      "url": "https://en.wikipedia.org/wiki/H%C3%BCckel_method",
+      "value": 0.0
+    },
+    "models/huckel/beta_eV": {
+      "edition": "Pauling-1960",
+      "fetched": "2026-09-06",
+      "id": "models/huckel/beta_eV",
+      "method": "approximation: simple Huckel C 2p-2p resonance integral (Streitwieser)",
+      "source": "literature",
+      "url": "https://en.wikipedia.org/wiki/H%C3%BCckel_method",
+      "value": -2.7
+    },
     "models/huckel/bond_cutoff_angstrom": {
       "edition": "Pauling-1960",
       "fetched": "2026-09-06",

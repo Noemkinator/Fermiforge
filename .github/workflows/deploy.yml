@@ -19,24 +19,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Build web app (web/ lands in M1)
-        run: |
-          mkdir -p site
-          if [ -d web ] && [ -f web/package.json ]; then
-            (cd web && npm ci && npm run build && cp -r dist/* ../site/)
-          else
-            printf '%s\n' \
-              '<!doctype html>' \
-              '<meta charset="utf-8">' \
-              '<title>Fermiforge</title>' \
-              '<h1>Fermiforge</h1>' \
-              "<p>Build matter from quarks to molecules &ndash; and rewrite the laws while you're at it.</p>" \
-              '<p>The web app lands in milestone M1. Core physics, data pipeline and URL state codec are already live in the repository.</p>' \
-              > site/index.html
-          fi
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Build web app (wasm + vite)
+        run: cd web && npm ci && npm run build
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: web/dist
 
   deploy:
     needs: build

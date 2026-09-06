@@ -15,7 +15,7 @@
     "models.json": {
       "edition": "Pauling-1960",
       "fetched": "2026-09-06",
-      "sha256": "8efb09bd53b795bb3fd38b6130b29696e0219abf376e85725b3f0f5bf9a129b7",
+      "sha256": "e23b4bf2260bb36c5840f0fab8abe43470a3e1e0dabd1187aa3fae6226a7074b",
       "source": "literature"
     },
     "nuclei.json": {

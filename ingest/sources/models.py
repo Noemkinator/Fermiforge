@@ -20,6 +20,18 @@ PARAMETERS: list[tuple[str, float, str, str]] = [
         "approximation: single global cutoff for covalent bond perception",
         "https://en.wikipedia.org/wiki/Covalent_radius (C-C 1.54 A, general 1.6 A cutoff)",
     ),
+    (
+        "models/huckel/alpha_eV",
+        0.0,
+        "approximation: simple Huckel reference energy for C 2p (Coulson)",
+        "https://en.wikipedia.org/wiki/H%C3%BCckel_method",
+    ),
+    (
+        "models/huckel/beta_eV",
+        -2.7,
+        "approximation: simple Huckel C 2p-2p resonance integral (Streitwieser)",
+        "https://en.wikipedia.org/wiki/H%C3%BCckel_method",
+    ),
 ]
 
 

@@ -15,7 +15,9 @@ context/
 # WASM / web
 /web/node_modules/
 /web/dist/
-/web/pkg/
+/web/pkg-*/
+/web/wasm-pkg/
+/core/wasm-pkg/
 /web/pkg-*/
 
 # Python
