@@ -41,7 +41,7 @@ fn benzene_spectrum_matches_analytic() {
         .expect("benzene");
     let expected = [2.0, 1.0, 1.0, -1.0, -1.0, -2.0]; // k values, ascending energy with beta<0
     for (e, k) in sol.energies.iter().zip(expected) {
-        let analytic = 0.0 + k * -1.0;
+        let analytic = -k;
         assert!(
             (e.value - analytic).abs() < 0.01,
             "energy {e:?} vs analytic {analytic}"
