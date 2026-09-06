@@ -1,0 +1,33 @@
+# === AI/agent files — NEVER commit ===
+.ai/
+AGENTS.md
+CLAUDE.md
+.aider*
+.cursor/
+.cursorrules
+context/
+# ====================================
+
+# Rust
+/target/
+**/*.rs.bk
+
+# WASM / web
+/web/node_modules/
+/web/dist/
+/web/pkg/
+/web/pkg-*/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+Thumbs.db
+.DS_Store
