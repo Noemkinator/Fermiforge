@@ -44,7 +44,8 @@ let lumo: number | null = null;
 let gap: number | null = null;
 let totalEnergy: number | null = null;
 let selectedMo: number | null = null;
-let error = "";
+let linkError = "";
+let computeError = "";
 let copied = false;
 let ready = false;
 let urlTimer: ReturnType<typeof setTimeout> | undefined;
@@ -96,9 +97,9 @@ function recompute() {
     lumo = res.lumo;
     gap = res.gap;
     totalEnergy = res.totalEnergy;
-    error = "";
+    computeError = "";
   } catch (e) {
-    error = String(e);
+    computeError = String(e);
   }
   render();
 }
@@ -133,7 +134,7 @@ function scheduleUrl() {
   urlTimer = setTimeout(() => {
     try {
       location.hash = encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, "");
-    } catch (e) { error = `URL: ${e}`; }
+    } catch (e) { linkError = `URL: ${e}`; }
   }, 500);
 }
 
@@ -187,7 +188,7 @@ async function copyLink() {
     await navigator.clipboard.writeText(location.href);
     copied = true;
     setTimeout(() => (copied = false), 1500);
-  } catch (e) { error = String(e); }
+  } catch (e) { linkError = String(e); }
 }
 
 onMount(async () => {
@@ -199,9 +200,9 @@ onMount(async () => {
   if (location.hash.startsWith("#/s=")) {
     try {
       scene = fromWire(JSON.parse(decode_scene_fragment(location.hash)));
-      if (scene.mode !== "huckel") error = "atom scenes arrive in M3; showing Hückel layer";
+      if (scene.mode !== "huckel") linkError = "atom scenes arrive in M3; showing Hückel layer";
     } catch (e) {
-      error = `Bad shared link: ${e}. Loaded benzene instead.`;
+      linkError = `Bad shared link: ${e}. Loaded benzene instead.`;
     }
   }
   ready = true;
@@ -217,7 +218,7 @@ onMount(async () => {
     <button on:click={addAtom}>+ C atom</button>
     <button on:click={copyLink}>{copied ? "copied!" : "copy link"}</button>
   </header>
-  {#if error}<div class="error">{error}</div>{/if}
+  {#if linkError || computeError}<div class="error">{linkError || computeError}</div>{/if}
   <section>
     <canvas
       bind:this={canvas}
