@@ -1,0 +1,8 @@
+{
+  "pdg_id": 1,
+  "name": "u",
+  "title": "Up quark (MSbar at 2 GeV; PDG quotes +0.49/-0.26, stored as symmetric max)",
+  "mass": [
+    { "value": 2.16, "uncertainty": 0.49, "units": "MeV" }
+  ]
+}

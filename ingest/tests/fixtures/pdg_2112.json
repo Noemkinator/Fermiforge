@@ -1,0 +1,8 @@
+{
+  "pdg_id": 2112,
+  "name": "n",
+  "title": "Neutron",
+  "mass": [
+    { "value": 939.56542194, "uncertainty": 7.6e-8, "units": "MeV" }
+  ]
+}

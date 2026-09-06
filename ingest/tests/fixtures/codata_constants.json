@@ -1,0 +1,10 @@
+{
+  "codata_version": "CODATA 2022",
+  "alpha": 0.0072973525643,
+  "physical_constants": {
+    "electron mass energy equivalent in MeV": [0.51099895069, "MeV", 1.6e-10],
+    "muon mass energy equivalent in MeV": [105.6583755, "MeV", 2.3e-6],
+    "proton mass energy equivalent in MeV": [938.27208816, "MeV", 2.9e-8],
+    "neutron mass energy equivalent in MeV": [939.56542194, "MeV", 7.6e-8]
+  }
+}

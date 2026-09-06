@@ -1,0 +1,8 @@
+{
+  "pdg_id": 13,
+  "name": "mu-",
+  "title": "Muon",
+  "mass": [
+    { "value": 105.6583755, "uncertainty": 2.3e-6, "units": "MeV" }
+  ]
+}

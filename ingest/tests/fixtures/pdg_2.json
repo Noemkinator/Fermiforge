@@ -1,0 +1,8 @@
+{
+  "pdg_id": 2,
+  "name": "d",
+  "title": "Down quark (MSbar at 2 GeV; PDG quotes +0.48/-0.17, stored as symmetric max)",
+  "mass": [
+    { "value": 4.67, "uncertainty": 0.48, "units": "MeV" }
+  ]
+}

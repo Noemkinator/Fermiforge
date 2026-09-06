@@ -1,0 +1,32 @@
+[
+  {
+    "z": 1, "a": 2,
+    "mass_excess": 13.1357980, "mass_excess_uncertainty": 0.0000018,
+    "binding_energy": 2.2245660, "binding_energy_uncertainty": 0.0000020
+  },
+  {
+    "z": 1, "a": 3,
+    "mass_excess": 14.9498069, "mass_excess_uncertainty": 0.0000112,
+    "binding_energy": 8.4818211, "binding_energy_uncertainty": 0.0000040
+  },
+  {
+    "z": 2, "a": 3,
+    "mass_excess": 14.9312152, "mass_excess_uncertainty": 0.0000020,
+    "binding_energy": 7.7180418, "binding_energy_uncertainty": 0.0000040
+  },
+  {
+    "z": 2, "a": 4,
+    "mass_excess": 2.4249159, "mass_excess_uncertainty": 0.0000011,
+    "binding_energy": 28.2956730, "binding_energy_uncertainty": 0.0000040
+  },
+  {
+    "z": 6, "a": 12,
+    "mass_excess": 0.0, "mass_excess_uncertainty": 0.0,
+    "binding_energy": 92.1627700, "binding_energy_uncertainty": 0.0000700
+  },
+  {
+    "z": 8, "a": 16,
+    "mass_excess": -4.7370030, "mass_excess_uncertainty": 0.0000120,
+    "binding_energy": 127.6193213, "binding_energy_uncertainty": 0.0000040
+  }
+]

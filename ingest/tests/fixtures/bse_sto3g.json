@@ -1,0 +1,67 @@
+{
+  "name": "STO-3G",
+  "version": "1.0",
+  "reference": "https://www.basissetexchange.org",
+  "elements": {
+    "1": [
+      {
+        "electron_shells": [
+          {
+            "angular_momentum": ["S"],
+            "region_type": "int",
+            "exponents": [
+              "0.3425250914e+01",
+              "0.6239137298e+00",
+              "0.1688554040e+00"
+            ],
+            "coefficients": [
+              ["0.1543289671e+00", "0.5353281423e+00", "0.4446345422e+00"]
+            ]
+          }
+        ]
+      }
+    ],
+    "6": [
+      {
+        "electron_shells": [
+          {
+            "angular_momentum": ["S"],
+            "region_type": "int",
+            "exponents": [
+              "0.3047524900e+04",
+              "0.4573695100e+03",
+              "0.1039486900e+03"
+            ],
+            "coefficients": [
+              ["0.1834700000e-02", "0.2000780000e-01", "0.1083755000e+00"]
+            ]
+          },
+          {
+            "angular_momentum": ["S"],
+            "region_type": "int",
+            "exponents": [
+              "0.8285829200e+01",
+              "0.1776558900e+01",
+              "0.4444238000e+00"
+            ],
+            "coefficients": [
+              ["-0.1107775000e+00", "0.1482116000e+00", "0.5418259000e+00"]
+            ]
+          },
+          {
+            "angular_momentum": ["P"],
+            "region_type": "int",
+            "exponents": [
+              "0.8285829200e+01",
+              "0.1776558900e+01",
+              "0.4444238000e+00"
+            ],
+            "coefficients": [
+              ["0.7087930000e-01", "0.3390684000e+00", "0.7281500000e+00"]
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

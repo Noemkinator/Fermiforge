@@ -1,0 +1,8 @@
+{
+  "pdg_id": 2212,
+  "name": "p",
+  "title": "Proton",
+  "mass": [
+    { "value": 938.27208816, "uncertainty": 2.9e-8, "units": "MeV" }
+  ]
+}
