@@ -1,0 +1,114 @@
+{
+  "generated": "2026-09-06",
+  "schema_version": 0,
+  "values": {
+    "nuclei/C12/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/C12/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 7e-05,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=6&a=12",
+      "value": 92.16277
+    },
+    "nuclei/C12/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/C12/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 0.0,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=6&a=12",
+      "value": 0.0
+    },
+    "nuclei/He3/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/He3/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 4e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=2&a=3",
+      "value": 7.7180418
+    },
+    "nuclei/He3/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/He3/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 2e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=2&a=3",
+      "value": 14.9312152
+    },
+    "nuclei/He4/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/He4/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 4e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=2&a=4",
+      "value": 28.295673
+    },
+    "nuclei/He4/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/He4/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 1.1e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=2&a=4",
+      "value": 2.4249159
+    },
+    "nuclei/O16/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/O16/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 4e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=8&a=16",
+      "value": 127.6193213
+    },
+    "nuclei/O16/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/O16/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 1.2e-05,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=8&a=16",
+      "value": -4.737003
+    },
+    "nuclei/d/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/d/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 2e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=1&a=2",
+      "value": 2.224566
+    },
+    "nuclei/d/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/d/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 1.8e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=1&a=2",
+      "value": 13.135798
+    },
+    "nuclei/t/binding_energy_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/t/binding_energy_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 4e-06,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=1&a=3",
+      "value": 8.4818211
+    },
+    "nuclei/t/mass_excess_MeV": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "id": "nuclei/t/mass_excess_MeV",
+      "source": "IAEA/AME",
+      "uncertainty": 1.12e-05,
+      "url": "https://www-nds.iaea.org/livechart/api/nucleide?z=1&a=3",
+      "value": 14.9498069
+    }
+  }
+}

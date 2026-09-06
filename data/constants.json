@@ -1,0 +1,50 @@
+{
+  "generated": "2026-09-06",
+  "schema_version": 0,
+  "values": {
+    "constants/alpha": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "constants/alpha",
+      "source": "CODATA",
+      "url": "https://docs.scipy.org/doc/scipy/reference/constants.html",
+      "value": 0.0072973525643
+    },
+    "constants/electron_mass_MeV": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "constants/electron_mass_MeV",
+      "source": "CODATA",
+      "uncertainty": 1.6e-10,
+      "url": "https://docs.scipy.org/doc/scipy/reference/constants.html",
+      "value": 0.51099895069
+    },
+    "constants/muon_mass_MeV": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "constants/muon_mass_MeV",
+      "source": "CODATA",
+      "uncertainty": 2.3e-06,
+      "url": "https://docs.scipy.org/doc/scipy/reference/constants.html",
+      "value": 105.6583755
+    },
+    "constants/neutron_mass_MeV": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "constants/neutron_mass_MeV",
+      "source": "CODATA",
+      "uncertainty": 7.6e-08,
+      "url": "https://docs.scipy.org/doc/scipy/reference/constants.html",
+      "value": 939.56542194
+    },
+    "constants/proton_mass_MeV": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "constants/proton_mass_MeV",
+      "source": "CODATA",
+      "uncertainty": 2.9e-08,
+      "url": "https://docs.scipy.org/doc/scipy/reference/constants.html",
+      "value": 938.27208816
+    }
+  }
+}

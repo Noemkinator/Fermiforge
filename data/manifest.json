@@ -1,0 +1,30 @@
+{
+  "files": {
+    "basis_sto3g.json": {
+      "edition": "1.0",
+      "fetched": "2026-09-06",
+      "sha256": "9fe0d2575f3b7cf03b5003930185e4321ec7e9d149578db87b86496a1e9be99c",
+      "source": "BSE"
+    },
+    "constants.json": {
+      "edition": "via scipy.constants",
+      "fetched": "2026-09-06",
+      "sha256": "1e208f5174db0680b667b147e41e3d072a0253c762e29d80da9dbddf989c7891",
+      "source": "CODATA"
+    },
+    "nuclei.json": {
+      "edition": "AME2020",
+      "fetched": "2026-09-06",
+      "sha256": "810af12605aba19a17547ac13b0a2e8254879878aca040240762e23c778dcb53",
+      "source": "IAEA/AME"
+    },
+    "particles.json": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "sha256": "4e7b550d45bdcf77d42b63072091b0c0b174a816a16923317b830768ce85d232",
+      "source": "PDG"
+    }
+  },
+  "generated": "2026-09-06",
+  "schema_version": 0
+}

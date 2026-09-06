@@ -1,0 +1,275 @@
+{
+  "basis": "sto-3g",
+  "elements": {
+    "C": {
+      "shells": [
+        {
+          "angular_momentum": "S",
+          "primitives": [
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/0/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.0018347
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/0/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 3047.5249
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/1/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.0200078
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/1/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 457.36951
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/2/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.1083755
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/2/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 103.94869
+              }
+            }
+          ]
+        },
+        {
+          "angular_momentum": "S",
+          "primitives": [
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/0/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": -0.1107775
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/0/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 8.2858292
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/1/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.1482116
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/1/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 1.7765589
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/S/2/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.5418259
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/S/2/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 0.4444238
+              }
+            }
+          ]
+        },
+        {
+          "angular_momentum": "P",
+          "primitives": [
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/P/0/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.0708793
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/P/0/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 8.2858292
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/P/1/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.3390684
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/P/1/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 1.7765589
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/C/P/2/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.72815
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/C/P/2/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 0.4444238
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "H": {
+      "shells": [
+        {
+          "angular_momentum": "S",
+          "primitives": [
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/H/S/0/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.1543289671
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/H/S/0/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 3.425250914
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/H/S/1/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.5353281423
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/H/S/1/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 0.6239137298
+              }
+            },
+            {
+              "coefficients": [
+                {
+                  "edition": "1.0",
+                  "fetched": "2026-09-06",
+                  "id": "basis/sto-3g/H/S/2/contract/0",
+                  "source": "BSE",
+                  "url": "https://www.basissetexchange.org",
+                  "value": 0.4446345422
+                }
+              ],
+              "exponent": {
+                "edition": "1.0",
+                "fetched": "2026-09-06",
+                "id": "basis/sto-3g/H/S/2/exponent",
+                "source": "BSE",
+                "url": "https://www.basissetexchange.org",
+                "value": 0.168855404
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "generated": "2026-09-06",
+  "schema_version": 0
+}

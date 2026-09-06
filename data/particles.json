@@ -1,0 +1,60 @@
+{
+  "generated": "2026-09-06",
+  "schema_version": 0,
+  "values": {
+    "particles/down/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/down/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 0.48,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/2",
+      "value": 4.67
+    },
+    "particles/electron/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/electron/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 1.6e-10,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/11",
+      "value": 0.51099895069
+    },
+    "particles/muon/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/muon/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 2.3e-06,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/13",
+      "value": 105.6583755
+    },
+    "particles/neutron/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/neutron/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 7.6e-08,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/2112",
+      "value": 939.56542194
+    },
+    "particles/proton/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/proton/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 2.9e-08,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/2212",
+      "value": 938.27208816
+    },
+    "particles/up/mass_MeV": {
+      "edition": "2024",
+      "fetched": "2026-09-06",
+      "id": "particles/up/mass_MeV",
+      "source": "PDG",
+      "uncertainty": 0.49,
+      "url": "https://pdgapi.lbl.gov/pdgrest/api/v1/public/particle/1",
+      "value": 2.16
+    }
+  }
+}
