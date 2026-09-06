@@ -1,0 +1,30 @@
+Fermiforge — third-party data notices
+=====================================
+
+The source code in this repository is MIT-licensed (see LICENSE).
+The files under data/ are NOT MIT: they are redistributions of upstream
+scientific data and remain under the terms of their respective sources.
+Each snapshot entry carries full provenance (source, edition, fetched, url).
+
+Upstream sources
+----------------
+
+1. Particle Data Group (PDG) — particle properties via the PDG REST API
+   https://pdg.lbl.gov / https://pdgapi.lbl.gov
+   Review of Particle Physics; citation policy per PDG terms of use.
+
+2. CODATA fundamental physical constants, redistributed via SciPy
+   https://docs.scipy.org/doc/scipy/reference/constants.html
+   SciPy is BSD-3-Clause; CODATA values are public reference data.
+
+3. Basis Set Exchange (BSE) — STO-3G Gaussian basis sets
+   https://www.basissetexchange.org
+   W. T. Borremans et al. / Feller group; attribution per BSE terms.
+
+4. IAEA LiveChart / AME atomic mass evaluation
+   https://www-nds.iaea.org/livechart
+   IAEA data terms apply.
+
+ACTION REQUIRED before the M2 public release (PLAN.md § 9): verify the exact
+redistribution terms of each source above and adjust this file and data/README.md
+accordingly. The monthly data-update cron (PLAN.md § 7.3) keeps snapshots fresh.

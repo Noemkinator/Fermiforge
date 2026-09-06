@@ -1,0 +1,49 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build web app (web/ lands in M1)
+        run: |
+          mkdir -p site
+          if [ -d web ] && [ -f web/package.json ]; then
+            (cd web && npm ci && npm run build && cp -r dist/* ../site/)
+          else
+            printf '%s\n' \
+              '<!doctype html>' \
+              '<meta charset="utf-8">' \
+              '<title>Fermiforge</title>' \
+              '<h1>Fermiforge</h1>' \
+              "<p>Build matter from quarks to molecules &ndash; and rewrite the laws while you're at it.</p>" \
+              '<p>The web app lands in milestone M1. Core physics, data pipeline and URL state codec are already live in the repository.</p>' \
+              > site/index.html
+          fi
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

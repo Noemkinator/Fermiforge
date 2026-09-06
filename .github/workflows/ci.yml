@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  ai-guard:
+    name: AI files guard (PLAN.md § 14)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Reject tracked AI/agent files
+        run: |
+          PATTERNS='(^|/)\.ai/|^AGENTS\.md$|^CLAUDE\.md$|^GEMINI\.md$|(^|/)\.aider|(^|/)\.cursor/|^\.cursorrules$|^context/'
+          TRACKED=$(git ls-files | grep -E "$PATTERNS" || true)
+          if [ -n "$TRACKED" ]; then
+            echo "::error::AI/agent files must never be committed (PLAN.md § 13.12):"
+            echo "$TRACKED"
+            exit 1
+          fi
+          echo "No tracked AI/agent files."
+
+  rust-tests:
+    name: Rust fmt + clippy + tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+
+  wasm-tests:
+    name: WASM tests (headless Chrome)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+      - name: Match wasm-bindgen-cli to the crate version (PLAN.md § 10.2)
+        run: |
+          WBG=$(cargo tree -p fermiforge-core -i wasm-bindgen 2>/dev/null \
+            | head -n1 | sed -E 's/.*wasm-bindgen v([^ ]+).*/\1/' || true)
+          if [ -n "$WBG" ]; then
+            echo "Installing wasm-bindgen-cli $WBG"
+            cargo install wasm-bindgen-cli --version "$WBG" --locked
+          else
+            echo "wasm-bindgen not in dependency tree yet; using wasm-pack default."
+          fi
+      - name: wasm-pack test
+        run: wasm-pack test --headless --chrome core || wasm-pack test --headless --firefox core
+
+  build:
+    name: Release build + size budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --workspace
+      - name: Size budget (< 5 MB warning, PLAN.md § 10.1)
+        run: |
+          SIZE=$(du -sb target/release | cut -f1)
+          echo "release artifacts: $SIZE bytes"
+          if [ "$SIZE" -gt 5242880 ]; then
+            echo "::warning::release build exceeds 5 MB size budget"
+          fi
+
+  data-integrity:
+    name: Data integrity + ingest tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r ingest/requirements-dev.txt
+      - run: ruff check ingest
+      - run: ruff format --check ingest
+      - run: python -m pytest -q
+      - run: python -m ingest.validate

@@ -1,0 +1,30 @@
+name: Nightly property tests
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  proptest:
+    name: Deep property tests (100k cases)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PROPTEST_CASES: "100000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Run ignored property tests
+        run: cargo test --workspace -- --ignored --nocapture
+      - name: Upload failing proptest seeds
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: proptest-regressions
+          path: "**/proptest-regressions/"
+          if-no-files-found: ignore

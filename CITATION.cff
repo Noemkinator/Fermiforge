@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Fermiforge: build matter from quarks to molecules"
+type: software
+authors:
+  - family-names: "Zajíček"
+    given-names: "Jan"
+    # orcid: "0000-0000-0000-0000"  # fill before the M2 release (PLAN.md § 11.4)
+repository-code: "https://github.com/Noemkinator/Fermiforge"
+license: MIT
+version: 0.1.0
+date-released: 2026-09-06
+---
+cff-version: 1.2.0
+message: "If you use the bundled physics data snapshots, please also cite their upstream sources (see NOTICES) and this snapshot."
+title: "Fermiforge data snapshots (PDG, CODATA, BSE, IAEA/AME) with full provenance"
+type: dataset
+authors:
+  - family-names: "Zajíček"
+    given-names: "Jan"
+repository-code: "https://github.com/Noemkinator/Fermiforge"
+license: "Other (data remain under the licenses of their upstream sources, see NOTICES)"

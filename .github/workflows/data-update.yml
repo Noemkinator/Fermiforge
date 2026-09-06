@@ -1,0 +1,81 @@
+name: Monthly data update (PLAN.md § 7.3)
+
+on:
+  schedule:
+    - cron: "0 5 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: pip install -r ingest/requirements-dev.txt
+
+      - name: Regenerate data from live sources
+        run: python -m ingest.generate
+
+      - name: Data unchanged?
+        id: diff
+        run: |
+          if git diff --quiet -- data/; then
+            echo "No upstream changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --stat -- data/ | tee changed-files.txt
+          fi
+
+      - name: Validate new data (no bare numbers)
+        if: steps.diff.outputs.changed == 'true'
+        run: python -m ingest.validate
+
+      - name: Run physics validation tests
+        if: steps.diff.outputs.changed == 'true'
+        run: cargo test --workspace
+
+      - name: Summarize changes for PR body
+        if: steps.diff.outputs.changed == 'true'
+        id: summary
+        run: |
+          echo "list<<EOF" >> "$GITHUB_OUTPUT"
+          cat changed-files.txt >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR with updated data
+        if: steps.diff.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          branch: data-update
+          delete-branch: true
+          commit-message: "chore(data): refresh snapshots from upstream sources"
+          title: "chore(data): monthly data snapshot refresh"
+          body: |
+            Automated refresh of `data/` snapshots from upstream sources.
+
+            ## Changed files
+            ```
+            ${{ steps.summary.outputs.list }}
+            ```
+            `python -m ingest.validate` and `cargo test --workspace` passed
+            against the new data.
+
+      - name: Open issue on validation failure
+        if: failure() && steps.diff.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --title "data update broke validation tests" \
+            --body "The scheduled data refresh failed validation. No PR was opened. See ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            || true
