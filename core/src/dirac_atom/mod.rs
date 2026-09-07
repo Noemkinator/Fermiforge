@@ -8,7 +8,7 @@ use serde::Serialize;
 /// hbar*c in MeV*fm (CODATA 2022).
 const HBARC: f64 = 197.326_980_4;
 /// fine-structure constant (CODATA 2022).
-const ALPHA: f64 = 7.297_352_5643e-3;
+const ALPHA: f64 = 7.297_352_564_3e-3;
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Level {
@@ -69,10 +69,16 @@ pub fn solve_level_with_steps(z: u32, mass_mev: f64, n: u32, kappa: i32, steps: 
         let mut q = ratio * p;
         let mut nodes = 0i32;
         let mut prev_sign = p.signum();
+        let o = Ode {
+            kappa,
+            e,
+            m: mass_mev,
+            za,
+        };
         let mut r = r_min;
         for _ in 0..nsteps {
             let r2 = (r * h.exp()).min(r_max);
-            let (p2, q2) = rk4_step(r, r2, p, q, kappa, e, mass_mev, za);
+            let (p2, q2) = rk4_step(r, r2, p, q, &o);
             let s = p2.signum();
             if s != 0.0 && s != prev_sign && p2.abs() > 1e-300 {
                 nodes += 1;
@@ -138,8 +144,16 @@ pub fn solve_level_with_steps(z: u32, mass_mev: f64, n: u32, kappa: i32, steps: 
     0.5 * (a + bnd)
 }
 
-fn rk4_step(r: f64, r_new: f64, p: f64, q: f64, kappa: i32, e: f64, m: f64, za: f64) -> (f64, f64) {
+struct Ode {
+    kappa: i32,
+    e: f64,
+    m: f64,
+    za: f64,
+}
+
+fn rk4_step(r: f64, r_new: f64, p: f64, q: f64, o: &Ode) -> (f64, f64) {
     // derivative w.r.t. x = ln r of (P, Q)
+    let (kappa, e, m, za) = (o.kappa, o.e, o.m, o.za);
     let deriv = |rr: f64, pp: f64, qq: f64| -> (f64, f64) {
         let v = -za * HBARC / rr; // V(r) in MeV
         let k1 = (e - v + m) / HBARC;
