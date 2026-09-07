@@ -61,6 +61,17 @@ const PARAMS = [
   { id: "models/huckel/beta_eV", label: "β (eV)", fallback: -2.7 },
 ];
 
+// [symbol, grid column, grid row] — standard 18-column layout, f-block on row 9
+const ELEMENTS: [string, number, number][] = [
+  ["H", 1, 1], ["He", 18, 1],
+  ["Li", 1, 2], ["Be", 2, 2], ["B", 13, 2], ["C", 14, 2], ["N", 15, 2], ["O", 16, 2], ["F", 17, 2], ["Ne", 18, 2],
+  ["Na", 1, 3], ["Mg", 2, 3], ["Al", 13, 3], ["Si", 14, 3], ["P", 15, 3], ["S", 16, 3], ["Cl", 17, 3], ["Ar", 18, 3],
+  ["K", 1, 4], ["Ca", 2, 4], ["Sc", 3, 4], ["Ti", 4, 4], ["V", 5, 4], ["Cr", 6, 4], ["Mn", 7, 4], ["Fe", 8, 4], ["Co", 9, 4], ["Ni", 10, 4], ["Cu", 11, 4], ["Zn", 12, 4], ["Ga", 13, 4], ["Ge", 14, 4], ["As", 15, 4], ["Se", 16, 4], ["Br", 17, 4], ["Kr", 18, 4],
+  ["Rb", 1, 5], ["Sr", 2, 5], ["Y", 3, 5], ["Zr", 4, 5], ["Nb", 5, 5], ["Mo", 6, 5], ["Tc", 7, 5], ["Ru", 8, 5], ["Rh", 9, 5], ["Pd", 10, 5], ["Ag", 11, 5], ["Cd", 12, 5], ["In", 13, 5], ["Sn", 14, 5], ["Sb", 15, 5], ["Te", 16, 5], ["I", 17, 5], ["Xe", 18, 5],
+  ["Cs", 1, 6], ["Ba", 2, 6], ["La", 3, 6], ["Hf", 4, 6], ["Ta", 5, 6], ["W", 6, 6], ["Re", 7, 6], ["Os", 8, 6], ["Ir", 9, 6], ["Pt", 10, 6], ["Au", 11, 6], ["Hg", 12, 6], ["Tl", 13, 6], ["Pb", 14, 6], ["Bi", 15, 6], ["Po", 16, 6], ["At", 17, 6], ["Rn", 18, 6],
+  ["U", 6, 9],
+];
+
 function param(id: string, fallback: number) {
   const o = scene.overrides.find((x) => x.key === id);
   if (o) return { value: parseFloat(String(o.value)), source: "user", edition: "user override" };
@@ -191,9 +202,13 @@ function scheduleUrl() {
 
 let dragging = -1;
 let panning = false;
+let rotating = false;
+let lastPx = 0;
+let lastPy = 0;
 let lastClip: [number, number] = [0, 0];
 let moved = false;
 let selectedAtom = -1;
+let showPalette = false;
 
 function clipOf(ev: PointerEvent | MouseEvent | WheelEvent): [number, number] {
   const rect = canvas.getBoundingClientRect();
@@ -217,14 +232,20 @@ function pick(clipX: number, clipY: number): number {
 
 function onDown(ev: PointerEvent) {
   const [cx, cy] = clipOf(ev);
-  dragging = pick(cx, cy);
   moved = false;
   lastClip = [cx, cy];
-  if (dragging >= 0) {
-    selectedAtom = dragging;
-    renderer.selected = dragging;
+  lastPx = ev.clientX;
+  lastPy = ev.clientY;
+  if (ev.button === 2 || ev.shiftKey) {
+    rotating = true;
   } else {
-    panning = true;
+    dragging = pick(cx, cy);
+    if (dragging >= 0) {
+      selectedAtom = dragging;
+      renderer.selected = dragging;
+    } else {
+      panning = true;
+    }
   }
   canvas.setPointerCapture(ev.pointerId);
   render();
@@ -232,7 +253,14 @@ function onDown(ev: PointerEvent) {
 
 function onMove(ev: PointerEvent) {
   const [cx, cy] = clipOf(ev);
-  if (dragging >= 0) {
+  if (rotating) {
+    renderer.rotY += (ev.clientX - lastPx) * 0.006;
+    renderer.rotX = Math.max(-1.35, Math.min(1.35, renderer.rotX + (ev.clientY - lastPy) * 0.006));
+    moved = true;
+    lastPx = ev.clientX;
+    lastPy = ev.clientY;
+    render();
+  } else if (dragging >= 0) {
     const [x, y] = renderer.fromClip(cx, cy);
     if (Math.hypot(cx - lastClip[0], cy - lastClip[1]) > 0.01) moved = true;
     scene.atoms[dragging] = { ...scene.atoms[dragging], x, y };
@@ -259,6 +287,7 @@ function onUp() {
   }
   dragging = -1;
   panning = false;
+  rotating = false;
 }
 
 function onWheel(ev: WheelEvent) {
@@ -305,7 +334,7 @@ function onKey(ev: KeyboardEvent) {
   }
 }
 
-function addAtom() {
+function addAtom(symbol = "C") {
   // spiral outward from the centroid until >= 1.3 A from every atom
   const cx = scene.atoms.reduce((s, a) => s + a.x, 0) / Math.max(scene.atoms.length, 1);
   const cy = scene.atoms.reduce((s, a) => s + a.y, 0) / Math.max(scene.atoms.length, 1);
@@ -316,7 +345,7 @@ function addAtom() {
     y = cy + (maxR + 1.4 + t * 0.12) * Math.sin(t);
     if (scene.atoms.every((a) => Math.hypot(a.x - x, a.y - y) >= 1.3)) break;
   }
-  scene.atoms.push({ symbol: "C", x: +x.toFixed(2), y: +y.toFixed(2), z: 0 });
+  scene.atoms.push({ symbol, x: +x.toFixed(2), y: +y.toFixed(2), z: 0 });
   scene = scene;
   recompute();
   scheduleUrl();
@@ -362,7 +391,8 @@ onMount(async () => {
     <h1>Fermiforge</h1>
     <span class="tag">simple Hückel · π system · one electron per atom (labeled approximation)</span>
     <div class="spacer"></div>
-    <button on:click={addAtom}>+ C atom</button>
+    <button on:click={() => (showPalette = !showPalette)}>elements</button>
+    <button on:click={() => addAtom("C")}>+ C atom</button>
     <button on:click={copyLink}>{copied ? "copied!" : "copy link"}</button>
   </header>
   {#if linkError || computeError}<div class="error">{linkError || computeError}</div>{/if}
@@ -374,8 +404,20 @@ onMount(async () => {
       on:pointerup={onUp}
       on:wheel={onWheel}
       on:dblclick={onDblClick}
+      on:contextmenu={(e) => e.preventDefault()}
     ></canvas>
     <canvas bind:this={labelCanvas} class="labels" aria-hidden="true"></canvas>
+    {#if showPalette}
+      <div class="palette">
+        {#each ELEMENTS as [sym, col, row]}
+          <button
+            class="el"
+            style="grid-column:{col}; grid-row:{row}"
+            on:click={() => addAtom(sym)}
+          >{sym}</button>
+        {/each}
+      </div>
+    {/if}
     <aside>
       <h2>π orbital energies (eV)</h2>
       {#each energies as e, i}
@@ -413,7 +455,7 @@ onMount(async () => {
       {/each}
       <p class="note">
         energies are derived values (provenance: α, β from data/models.json,
-        method simple-huckel/linear-in-alpha-beta). Drag atoms; wheel zooms; drag background pans, double-click (or F) resets view; click atom + Delete removes it; link updates live.
+        method simple-huckel/linear-in-alpha-beta). Drag atoms; wheel zooms; drag background pans; right-drag (or Shift-drag) rotates in 3D; double-click (or F) resets view; click atom + Delete removes it; link updates live.
       </p>
     </aside>
   </section>
@@ -432,6 +474,18 @@ onMount(async () => {
   section { flex: 1; display: flex; min-height: 0; position: relative; }
   canvas { flex: 1; min-width: 0; display: block; touch-action: none; cursor: crosshair; }
   canvas.labels { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .palette {
+    position: absolute; left: 12px; top: 12px; z-index: 5;
+    background: rgba(16, 19, 28, 0.97); border: 1px solid #333d52; border-radius: 8px;
+    padding: 10px; display: grid; grid-template-columns: repeat(18, 22px); grid-auto-rows: 22px;
+    gap: 2px; box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  }
+  .palette .el {
+    width: 22px; height: 22px; padding: 0; margin: 0; font-size: 10px; border-radius: 3px;
+    background: #232a3a; color: #dfe3ec; border: none; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .palette .el:hover { background: #3a4560; outline: 1px solid #6ea8ff; }
   aside { width: 260px; padding: 12px; border-left: 1px solid #262b38; overflow-y: auto; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #8b93a7; }
   aside button { display: flex; align-items: center; gap: 8px; width: 100%; margin: 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
