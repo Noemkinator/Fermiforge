@@ -99,6 +99,24 @@ export class Renderer {
   private lineBuf: WebGLBuffer;
   scale: [number, number] = [1, 1];
   offset: [number, number] = [0, 0];
+  zoom = 1;
+  panX = 0;
+  panY = 0;
+  selected = -1;
+
+  resetView() {
+    this.zoom = 1;
+    this.panX = 0;
+    this.panY = 0;
+  }
+
+  zoomAt(clipX: number, clipY: number, factor: number) {
+    const zOld = this.zoom;
+    const zNew = Math.min(20, Math.max(0.15, zOld * factor));
+    this.panX = clipX - ((clipX - this.panX) / zOld) * zNew;
+    this.panY = clipY - ((clipY - this.panY) / zOld) * zNew;
+    this.zoom = zNew;
+  }
 
   constructor(private canvas: HTMLCanvasElement) {
     const gl = canvas.getContext("webgl2", { antialias: true, alpha: true });
@@ -136,8 +154,8 @@ export class Renderer {
     const { width, height } = this.canvas;
     const aspect = width / height;
     if (atoms.length === 0) {
-      this.scale = [0.2, 0.2 / aspect];
-      this.offset = [0, 0];
+      this.scale = [0.2 * this.zoom, (0.2 * this.zoom) / aspect];
+      this.offset = [this.panX, this.panY];
       return;
     }
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -147,10 +165,10 @@ export class Renderer {
     }
     const spanX = Math.max(maxX - minX, 1.0) + 1.4;
     const spanY = Math.max(maxY - minY, 1.0) + 1.4;
-    const s = Math.min(1.8 / spanX, (1.8 * aspect) / spanY);
+    const s = Math.min(1.8 / spanX, (1.8 * aspect) / spanY) * this.zoom;
     this.scale = [s, s / aspect];
     const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
-    this.offset = [-cx * this.scale[0], -cy * this.scale[1]];
+    this.offset = [-cx * this.scale[0] + this.panX, -cy * this.scale[1] + this.panY];
   }
 
   toClip(x: number, y: number): [number, number] {
@@ -238,6 +256,12 @@ export class Renderer {
       lobeData.set([l.x, l.y, l.radius, ...col], k * 7);
     });
     drawDiscs(this.lobeVao, this.lobeBuf, lobeData, lobes.length);
+
+    // selection halo under atoms
+    if (this.selected >= 0 && this.selected < atoms.length) {
+      const sa = atoms[this.selected];
+      drawDiscs(this.lobeVao, this.lobeBuf, new Float32Array([sa.x, sa.y, 0.32, 1, 1, 1, 0.4]), 1);
+    }
 
     // atoms: small CPK-tinted discs, lightened for the dark background
     const atomData = new Float32Array(atoms.length * 7);

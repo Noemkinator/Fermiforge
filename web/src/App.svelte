@@ -190,12 +190,22 @@ function scheduleUrl() {
 }
 
 let dragging = -1;
+let panning = false;
+let lastClip: [number, number] = [0, 0];
+let moved = false;
+let selectedAtom = -1;
 
-function pick(ev: PointerEvent): number {
+function clipOf(ev: PointerEvent | MouseEvent | WheelEvent): [number, number] {
   const rect = canvas.getBoundingClientRect();
+  return [
+    ((ev.clientX - rect.left) / rect.width) * 2 - 1,
+    1 - ((ev.clientY - rect.top) / rect.height) * 2,
+  ];
+}
+
+function pick(clipX: number, clipY: number): number {
   const dpr = window.devicePixelRatio || 1;
-  const clipX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-  const clipY = 1 - ((ev.clientY - rect.top) / rect.height) * 2;
+  const rect = canvas.getBoundingClientRect();
   let best = -1, bestD = 14 * dpr / Math.min(rect.width, rect.height) * 2;
   scene.atoms.forEach((a, i) => {
     const [cx, cy] = renderer.toClip(a.x, a.y);
@@ -206,23 +216,94 @@ function pick(ev: PointerEvent): number {
 }
 
 function onDown(ev: PointerEvent) {
-  dragging = pick(ev);
-  if (dragging >= 0) canvas.setPointerCapture(ev.pointerId);
+  const [cx, cy] = clipOf(ev);
+  dragging = pick(cx, cy);
+  moved = false;
+  lastClip = [cx, cy];
+  if (dragging >= 0) {
+    selectedAtom = dragging;
+    renderer.selected = dragging;
+  } else {
+    panning = true;
+  }
+  canvas.setPointerCapture(ev.pointerId);
+  render();
 }
 
 function onMove(ev: PointerEvent) {
-  if (dragging < 0) return;
-  const rect = canvas.getBoundingClientRect();
-  const clipX = ((ev.clientX - rect.left) / rect.width) * 2 - 1;
-  const clipY = 1 - ((ev.clientY - rect.top) / rect.height) * 2;
-  const [x, y] = renderer.fromClip(clipX, clipY);
-  scene.atoms[dragging] = { ...scene.atoms[dragging], x, y };
+  const [cx, cy] = clipOf(ev);
+  if (dragging >= 0) {
+    const [x, y] = renderer.fromClip(cx, cy);
+    if (Math.hypot(cx - lastClip[0], cy - lastClip[1]) > 0.01) moved = true;
+    scene.atoms[dragging] = { ...scene.atoms[dragging], x, y };
+    scene = scene;
+    recompute();
+    scheduleUrl();
+  } else if (panning) {
+    renderer.panX += cx - lastClip[0];
+    renderer.panY += cy - lastClip[1];
+    moved = true;
+    render();
+  } else {
+    canvas.style.cursor = pick(cx, cy) >= 0 ? "grab" : "crosshair";
+  }
+  lastClip = [cx, cy];
+}
+
+function onUp() {
+  if (dragging >= 0 && !moved) selectedAtom = dragging;
+  if (panning && !moved) {
+    selectedAtom = -1;
+    renderer.selected = -1;
+    render();
+  }
+  dragging = -1;
+  panning = false;
+}
+
+function onWheel(ev: WheelEvent) {
+  ev.preventDefault();
+  const [cx, cy] = clipOf(ev);
+  renderer.zoomAt(cx, cy, Math.exp(-ev.deltaY * 0.0012));
+  render();
+}
+
+function onDblClick() {
+  renderer.resetView();
+  render();
+}
+
+function removeSelected() {
+  if (selectedAtom < 0) return;
+  const i = selectedAtom;
+  scene.atoms.splice(i, 1);
+  if (scene.bonds.length > 0) {
+    scene.bonds = scene.bonds
+      .filter(([a, b]) => a !== i && b !== i)
+      .map(([a, b]) => [a > i ? a - 1 : a, b > i ? b - 1 : b] as [number, number]);
+  }
+  selectedAtom = -1;
+  renderer.selected = -1;
   scene = scene;
   recompute();
   scheduleUrl();
 }
 
-function onUp() { dragging = -1; }
+function onKey(ev: KeyboardEvent) {
+  const tag = (document.activeElement as HTMLElement | null)?.tagName;
+  if (tag === "INPUT" || tag === "TEXTAREA") return;
+  if (ev.key === "Delete" || ev.key === "Backspace") {
+    ev.preventDefault();
+    removeSelected();
+  } else if (ev.key === "Escape") {
+    selectedAtom = -1;
+    renderer.selected = -1;
+    render();
+  } else if (ev.key === "f" || ev.key === "F") {
+    renderer.resetView();
+    render();
+  }
+}
 
 function addAtom() {
   // spiral outward from the centroid until >= 1.3 A from every atom
@@ -272,6 +353,7 @@ onMount(async () => {
   }
   ready = true;
   recompute();
+  window.addEventListener("keydown", onKey);
 });
 </script>
 
@@ -290,6 +372,8 @@ onMount(async () => {
       on:pointerdown={onDown}
       on:pointermove={onMove}
       on:pointerup={onUp}
+      on:wheel={onWheel}
+      on:dblclick={onDblClick}
     ></canvas>
     <canvas bind:this={labelCanvas} class="labels" aria-hidden="true"></canvas>
     <aside>
@@ -329,7 +413,7 @@ onMount(async () => {
       {/each}
       <p class="note">
         energies are derived values (provenance: α, β from data/models.json,
-        method simple-huckel/linear-in-alpha-beta). Drag atoms; link updates live.
+        method simple-huckel/linear-in-alpha-beta). Drag atoms; wheel zooms; drag background pans, double-click (or F) resets view; click atom + Delete removes it; link updates live.
       </p>
     </aside>
   </section>
