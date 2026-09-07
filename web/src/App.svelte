@@ -4,6 +4,7 @@ import init, {
   decode_scene_fragment,
   derive_bonded,
   encode_scene_fragment,
+  solve_atom_levels,
   solve_simple_huckel,
 } from "../wasm-pkg/fermiforge_core.js";
 import { Renderer, type AtomView, type Lobe } from "./renderer";
@@ -86,10 +87,123 @@ let computeError = "";
 let copied = false;
 let ready = false;
 let urlTimer: ReturnType<typeof setTimeout> | undefined;
+let lastWrittenHash = "";
+
+function setHash(h: string) {
+  lastWrittenHash = h;
+  location.hash = h;
+}
+
+function applyHash(): boolean {
+  if (location.hash.startsWith("#/atom")) {
+    const q = new URLSearchParams(location.hash.slice(location.hash.indexOf("?") + 1));
+    view = "atom";
+    atomZ = Math.max(1, Math.min(137, parseInt(q.get("Z") ?? "1", 10) || 1));
+    const lep = q.get("lepton");
+    if (lep === "muon" || lep === "electron") atomLepton = lep;
+    atomN = Math.max(1, Math.min(6, parseInt(q.get("n") ?? "3", 10) || 3));
+    atomNumeric = q.get("num") === "1";
+    return true;
+  }
+  view = "huckel";
+  if (location.hash.startsWith("#/s=")) {
+    try {
+      scene = fromWire(JSON.parse(decode_scene_fragment(location.hash)));
+      scene.bonds = clampExplicit(scene.bonds);
+      if (scene.mode !== "huckel") linkError = "atom scenes arrive in M3; showing Hückel layer";
+    } catch (e) {
+      linkError = `Bad shared link: ${e}. Loaded benzene instead.`;
+    }
+    return false;
+  }
+  recompute();
+  scheduleUrl();
+  return false;
+}
 
 function valueOf(id: string, fallback: number) {
   const m = models[id];
   return m ? m.value : fallback;
+}
+
+// --- hydrogen-like atom view (M3) ---
+const SYMS =
+  "H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og".split(" ");
+const KAPPA_LETTER = ["s", "p", "d", "f", "g", "h", "i"];
+
+interface AtomLevel {
+  n: number;
+  kappa: number;
+  e: { value: number; source: string; method?: string };
+  binding: { value: number; source: string; method?: string };
+}
+
+let view: "huckel" | "atom" = "huckel";
+let particles: Record<string, unknown> = {};
+let atomZ = 1;
+let atomLepton = "electron";
+let atomN = 3;
+let atomNumeric = false;
+let atomLevels: AtomLevel[] = [];
+let atomMethod = "";
+let atomError = "";
+
+function atomMass() {
+  return (
+    particles[`particles/${atomLepton}/mass_MeV`] ?? {
+      value: atomLepton === "muon" ? 105.6583755 : 0.51099895069,
+      source: "literature",
+      edition: "PDG-2024",
+    }
+  );
+}
+
+function atomMassInfo() {
+  const m = atomMass() as { source?: string; edition?: string };
+  return `${m.source ?? "?"} ${m.edition ?? ""}`.trim();
+}
+
+function levelLabel(l: AtomLevel) {
+  const lp = l.kappa < 0 ? -l.kappa - 1 : l.kappa;
+  return `${l.n}${KAPPA_LETTER[lp] ?? "?"}${2 * Math.abs(l.kappa) - 1}/2`;
+}
+
+function fmtMev(mev: number) {
+  const ev = Math.abs(mev) * 1e6;
+  if (ev >= 1e6) return `${(mev).toFixed(4)} MeV`;
+  if (ev >= 1e3) return `${(mev * 1e3).toFixed(3)} keV`;
+  return `${(mev * 1e6).toFixed(3)} eV`;
+}
+
+function atomHash() {
+  return `/atom?Z=${atomZ}&lepton=${atomLepton}&n=${atomN}${atomNumeric ? "&num=1" : ""}`;
+}
+
+function solveAtom() {
+  atomError = "";
+  try {
+    const res = JSON.parse(
+      solve_atom_levels(
+        JSON.stringify({ z: atomZ, mass: atomMass(), nMax: atomN, numeric: atomNumeric }),
+      ),
+    ) as { levels: AtomLevel[]; method: string };
+    atomLevels = res.levels;
+    atomMethod = res.method;
+  } catch (e) {
+    atomError = String(e);
+    atomLevels = [];
+  }
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => setHash(atomHash()), 300);
+}
+
+function toggleView() {
+  view = view === "huckel" ? "atom" : "huckel";
+  if (view === "atom") solveAtom();
+  else {
+    recompute();
+    scheduleUrl();
+  }
 }
 
 const PARAMS = [
@@ -317,10 +431,11 @@ function drawLabels(dpr: number) {
 }
 
 function scheduleUrl() {
+  if (view === "atom") return;
   clearTimeout(urlTimer);
   urlTimer = setTimeout(() => {
     try {
-      location.hash = encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, "");
+      setHash(encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, ""));
     } catch (e) { linkError = `URL: ${e}`; }
   }, 500);
 }
@@ -348,7 +463,7 @@ function pick(clipX: number, clipY: number): number {
   const rect = canvas.getBoundingClientRect();
   let best = -1, bestD = 14 * dpr / Math.min(rect.width, rect.height) * 2;
   scene.atoms.forEach((a, i) => {
-    const [cx, cy] = renderer.toClip(a.x, a.y);
+    const [cx, cy] = renderer.project(a.x, a.y, a.z ?? 0);
     const d = Math.hypot(cx - clipX, cy - clipY);
     if (d < bestD) { bestD = d; best = i; }
   });
@@ -410,8 +525,8 @@ function pickBond(ev: PointerEvent): number {
   const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
   let best = -1, bestD = 10;
   bonds3.forEach((b, k) => {
-    const [cax, cay] = renderer.toClip(scene.atoms[b.a].x, scene.atoms[b.a].y);
-    const [cbx, cby] = renderer.toClip(scene.atoms[b.b].x, scene.atoms[b.b].y);
+    const [cax, cay] = renderer.project(scene.atoms[b.a].x, scene.atoms[b.a].y, scene.atoms[b.a].z ?? 0);
+    const [cbx, cby] = renderer.project(scene.atoms[b.b].x, scene.atoms[b.b].y, scene.atoms[b.b].z ?? 0);
     const x1 = sx(cax), y1 = sy(cay), x2 = sx(cbx), y2 = sy(cby);
     const dx = x2 - x1, dy = y2 - y1;
     const t = Math.max(0, Math.min(1, ((mx - x1) * dx + (my - y1) * dy) / (dx * dx + dy * dy || 1)));
@@ -537,7 +652,8 @@ function clearSelection() { selectedMo = null; render(); }
 
 async function copyLink() {
   try {
-    location.hash = encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, "");
+    if (view === "atom") setHash(atomHash());
+    else setHash(encode_scene_fragment(JSON.stringify(toWire(scene))).replace(/^#/, ""));
     await navigator.clipboard.writeText(location.href);
     copied = true;
     setTimeout(() => (copied = false), 1500);
@@ -570,17 +686,22 @@ onMount(async () => {
     bondRefs = data.bond_lengths?.values ?? [];
     valences = data.valences?.values ?? {};
   } catch { /* offline fallback defaults */ }
-  if (location.hash.startsWith("#/s=")) {
-    try {
-      scene = fromWire(JSON.parse(decode_scene_fragment(location.hash)));
-      scene.bonds = clampExplicit(scene.bonds);
-      if (scene.mode !== "huckel") linkError = "atom scenes arrive in M3; showing Hückel layer";
-    } catch (e) {
-      linkError = `Bad shared link: ${e}. Loaded benzene instead.`;
-    }
-  }
+  try {
+    const pdata = (await (await fetch("./particles.json")).json()) as { values?: Record<string, unknown> };
+    particles = pdata.values ?? {};
+  } catch { /* offline fallback defaults */ }
+  const atomRoute = applyHash();
   ready = true;
-  recompute();
+  lastWrittenHash = location.hash.replace(/^#/, "");
+  if (atomRoute) solveAtom();
+  else recompute();
+  window.addEventListener("hashchange", () => {
+    if (location.hash.replace(/^#/, "") === lastWrittenHash) return;
+    const isAtom = applyHash();
+    clearTimeout(urlTimer);
+    if (isAtom) solveAtom();
+    else recompute();
+  });
   window.addEventListener("keydown", onKey);
 });
 </script>
@@ -590,14 +711,17 @@ onMount(async () => {
     <h1>Fermiforge</h1>
     <span class="tag">simple Hückel · π system · bond orders from geometry (labeled approximation)</span>
     <div class="spacer"></div>
-    <button on:click={() => (showPalette = !showPalette)}>elements</button>
-    <button on:click={() => addAtom("C")}>+ C atom</button>
-    <button on:click={clearScene}>clear</button>
-    <button on:click={resetAll}>reset</button>
+    <button on:click={toggleView}>{view === "huckel" ? "atom" : "molecule"}</button>
+    {#if view === "huckel"}
+      <button on:click={() => (showPalette = !showPalette)}>elements</button>
+      <button on:click={() => addAtom("C")}>+ C atom</button>
+      <button on:click={clearScene}>clear</button>
+      <button on:click={resetAll}>reset</button>
+    {/if}
     <button on:click={copyLink}>{copied ? "copied!" : "copy link"}</button>
   </header>
   {#if linkError || computeError}<div class="error">{linkError || computeError}</div>{/if}
-  <section>
+  <section class:hidden={view === "atom"}>
     <canvas
       bind:this={canvas}
       on:pointerdown={onDown}
@@ -672,6 +796,36 @@ onMount(async () => {
       </p>
     </aside>
   </section>
+  {#if view === "atom"}
+    <section class="atomview">
+      <div class="atom-controls">
+        <label>Z <input type="number" min="1" max="137" bind:value={atomZ} on:change={solveAtom} /></label>
+        <span class="elsym">{SYMS[atomZ - 1] ?? "?"}</span>
+        <label>lepton
+          <select bind:value={atomLepton} on:change={solveAtom}>
+            <option value="electron">electron</option>
+            <option value="muon">muon</option>
+          </select>
+        </label>
+        <label>n max <input type="number" min="1" max="6" bind:value={atomN} on:change={solveAtom} /></label>
+        <label class="chk"><input type="checkbox" bind:checked={atomNumeric} on:change={solveAtom} /> numeric shooting</label>
+      </div>
+      {#if atomError}<div class="error">{atomError}</div>{/if}
+      <h2>binding energies ({atomMethod || "solving…"})</h2>
+      {#each atomLevels as l (l.n + "/" + l.kappa)}
+        <div class="atom-level">
+          <span class="lbl">{levelLabel(l)}</span>
+          <span class="val">{fmtMev(l.binding.value)}</span>
+          <span class="tot">E = {fmtMev(l.e.value)}</span>
+        </div>
+      {/each}
+      <p class="note">
+        hydrogen-like {atomLepton} on a point nucleus Z={atomZ}; lepton mass from {atomMassInfo()}
+        (provenance-tracked Value, energies derived from it). E includes rest mass;
+        binding = m − E. Finite-nucleus size and QED corrections are not included.
+      </p>
+    </section>
+  {/if}
 </main>
 
 <style>
@@ -726,6 +880,17 @@ onMount(async () => {
     aside { width: auto; border-left: none; border-top: 1px solid #262b38; }
   }
   .stat { font-size: 13px; }
+  .hidden { display: none; }
+  .atomview { flex: 1; overflow-y: auto; padding: 16px 20px; max-width: 720px; }
+  .atom-controls { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 10px; }
+  .atom-controls input[type="number"] { width: 64px; background: #1a1f2b; color: #dfe3ec; border: 1px solid #333d52; border-radius: 4px; padding: 3px 6px; }
+  .atom-controls select { background: #1a1f2b; color: #dfe3ec; border: 1px solid #333d52; border-radius: 4px; padding: 3px 6px; }
+  .atom-controls .chk { display: flex; align-items: center; gap: 5px; }
+  .elsym { font-size: 22px; font-weight: 600; color: #6ea8ff; min-width: 30px; }
+  .atom-level { display: flex; gap: 14px; align-items: baseline; padding: 3px 6px; border-bottom: 1px solid #1d222e; font-variant-numeric: tabular-nums; }
+  .atom-level .lbl { min-width: 56px; color: #9aa3b8; }
+  .atom-level .val { min-width: 120px; }
+  .atom-level .tot { color: #8b93a7; font-size: 12px; }
   .note { font-size: 11px; color: #8b93a7; }
   em { font-style: normal; font-size: 11px; }
 </style>

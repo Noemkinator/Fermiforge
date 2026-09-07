@@ -72,6 +72,69 @@ pub fn derive_bonded(request_json: &str) -> Result<String, JsValue> {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct AtomLevelsRequest {
+    z: u32,
+    mass: Value,
+    n_max: u32,
+    #[serde(default)]
+    numeric: bool,
+}
+
+/// Solve hydrogen-like Dirac-Coulomb levels (point nucleus). Input
+/// `{ z, mass: Value, nMax, numeric? }` (mass in MeV, incl. rest mass).
+/// Output `{ levels: [{ n, kappa, e: Value, binding: Value }], method }`,
+/// energies in MeV. `numeric` uses the radial shooting solver (nMax <= 3).
+#[wasm_bindgen]
+pub fn solve_atom_levels(request_json: &str) -> Result<String, JsValue> {
+    let req: AtomLevelsRequest = serde_json::from_str(request_json).map_err(to_js)?;
+    if req.z == 0 || req.z > 137 {
+        return Err(to_js("Z must be 1..=137 for a point nucleus"));
+    }
+    if !(req.mass.value > 0.0) {
+        return Err(to_js("lepton mass must be positive"));
+    }
+    let cap = if req.numeric { 3 } else { 6 };
+    let n_max = req.n_max.clamp(1, cap);
+    let method = if req.numeric {
+        "dirac-coulomb-shooting"
+    } else {
+        "dirac-coulomb-analytic"
+    };
+    let mass = req.mass.value;
+    let solve = |m: f64, n: u32, kappa: i32| {
+        if req.numeric {
+            crate::dirac_atom::solve_level(req.z, m, n, kappa)
+        } else {
+            crate::dirac_atom::hydrogenic_energy(req.z, m, n, kappa)
+        }
+    };
+    let levels: Vec<serde_json::Value> = crate::dirac_atom::level_list(n_max)
+        .into_iter()
+        .map(|(n, kappa)| -> Result<serde_json::Value, JsValue> {
+            let e = solve(mass, n, kappa);
+            // Dirac-Coulomb energies are exactly linear in the lepton mass,
+            // so propagation needs no re-integration of the ODE.
+            let ratio = e / mass;
+            let e_value = Value::derive(
+                &|x: &[f64]| x[0] * ratio,
+                &[&req.mass],
+                &format!("{method}/n={n},kappa={kappa}"),
+            )
+            .map_err(to_js)?;
+            let binding = Value::derive(
+                &|x: &[f64]| x[0] * (1.0 - ratio),
+                &[&req.mass],
+                &format!("rest-mass-minus-{method}/n={n},kappa={kappa}"),
+            )
+            .map_err(to_js)?;
+            Ok(serde_json::json!({ "n": n, "kappa": kappa, "e": e_value, "binding": binding }))
+        })
+        .collect::<Result<Vec<_>, JsValue>>()?;
+    serde_json::to_string(&serde_json::json!({ "levels": levels, "method": method })).map_err(to_js)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HuckelRequest {
     n_atoms: usize,
     bonds: Vec<[usize; 2]>,
