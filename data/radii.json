@@ -1,0 +1,43 @@
+{
+  "generated": "2026-09-06",
+  "schema_version": 0,
+  "values": {
+    "radii/H1/rms_fm": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "radii/H1/rms_fm",
+      "source": "CODATA",
+      "uncertainty": 0.0039,
+      "url": "https://physics.nist.gov/cgi-bin/cuu/Value?rp",
+      "value": 0.8407
+    },
+    "radii/H2/rms_fm": {
+      "edition": "CODATA 2022",
+      "fetched": "2026-09-06",
+      "id": "radii/H2/rms_fm",
+      "source": "CODATA",
+      "uncertainty": 0.0019,
+      "url": "https://physics.nist.gov/cgi-bin/cuu/Value?rd",
+      "value": 2.1424
+    },
+    "radii/Pb208/rms_fm": {
+      "edition": "Angeli & Marinova, ADT 101 (2013) 185",
+      "fetched": "2026-09-06",
+      "id": "radii/Pb208/rms_fm",
+      "source": "literature",
+      "uncertainty": 0.018,
+      "url": "https://www-nds.iaea.org/radii/",
+      "value": 5.5009
+    },
+    "radii/fallback/r0_fm": {
+      "based_on": "uniform-sphere estimate R = r0·A^(1/3), Krane, Introductory Nuclear Physics (1988) Ch. 12",
+      "edition": "1988",
+      "fetched": "2026-09-06",
+      "id": "radii/fallback/r0_fm",
+      "method": "order-of-magnitude electron-scattering systematics (Hofstadter 1956); used only when no measured rms radius is available",
+      "source": "literature",
+      "url": "https://doi.org/10.1002/9783527617181",
+      "value": 1.2
+    }
+  }
+}

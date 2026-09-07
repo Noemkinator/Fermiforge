@@ -103,6 +103,13 @@ function applyHash(): boolean {
     if (lep === "muon" || lep === "electron") atomLepton = lep;
     atomN = Math.max(1, Math.min(6, parseInt(q.get("n") ?? "3", 10) || 3));
     atomNumeric = q.get("num") === "1";
+    const nuc = q.get("nuc");
+    atomNucleus = nuc === "finite" ? "finite" : "point";
+    const iso = q.get("iso");
+    if (iso === "H1" || iso === "H2" || iso === "Pb208") atomIso = iso;
+    else atomIso = "def";
+    atomReduced = q.get("red") === "1";
+    atomUehling = q.get("ueh") === "1";
     return true;
   }
   view = "huckel";
@@ -136,17 +143,53 @@ interface AtomLevel {
   kappa: number;
   e: { value: number; source: string; method?: string };
   binding: { value: number; source: string; method?: string };
+  shift: { value: number; source: string; method?: string };
+}
+
+interface AtomLine {
+  from: { n: number; kappa: number };
+  to: { n: number; kappa: number };
+  dE: { value: number; source: string; method?: string };
+  lambdaNm: { value: number; source: string; method?: string };
 }
 
 let view: "huckel" | "atom" = "huckel";
 let particles: Record<string, unknown> = {};
+let radii: Record<string, Provenance> = {};
+let lineRefs: Record<string, Provenance> = {};
 let atomZ = 1;
 let atomLepton = "electron";
 let atomN = 3;
 let atomNumeric = false;
+let atomNucleus: "point" | "finite" = "point";
+let atomIso: "def" | "H1" | "H2" | "Pb208" = "def";
+let atomReduced = false;
+let atomUehling = false;
 let atomLevels: AtomLevel[] = [];
+let atomLines: AtomLine[] = [];
 let atomMethod = "";
 let atomError = "";
+
+interface Provenance {
+  value: number;
+  source: string;
+  edition?: string;
+  uncertainty?: number;
+  id?: string;
+}
+
+// Isotopes with tabulated rms charge radii (data/radii.json). The default
+// nucleus mass number A ≈ round(2.02·Z) follows the valley of stability.
+const ISO_A: Record<string, number> = { H1: 1, H2: 2, Pb208: 208 };
+function isoOptions(z: number): string[] {
+  const out = ["def"];
+  if (z === 1) out.push("H1", "H2");
+  if (z === 82) out.push("Pb208");
+  return out;
+}
+function isoMassNumber(z: number, iso: string): number | undefined {
+  return iso === "def" ? undefined : ISO_A[iso];
+}
 
 function atomMass() {
   return (
@@ -163,38 +206,80 @@ function atomMassInfo() {
   return `${m.source ?? "?"} ${m.edition ?? ""}`.trim();
 }
 
-function levelLabel(l: AtomLevel) {
-  const lp = l.kappa < 0 ? -l.kappa - 1 : l.kappa;
-  return `${l.n}${KAPPA_LETTER[lp] ?? "?"}${2 * Math.abs(l.kappa) - 1}/2`;
+function levelLabel(n: number, kappa: number) {
+  const lp = kappa < 0 ? -kappa - 1 : kappa;
+  return `${n}${KAPPA_LETTER[lp] ?? "?"}${2 * Math.abs(kappa) - 1}/2`;
 }
 
 function fmtMev(mev: number) {
   const ev = Math.abs(mev) * 1e6;
-  if (ev >= 1e6) return `${(mev).toFixed(4)} MeV`;
-  if (ev >= 1e3) return `${(mev * 1e3).toFixed(3)} keV`;
-  return `${(mev * 1e6).toFixed(3)} eV`;
+  const sign = mev < 0 ? "-" : "";
+  if (ev >= 1e6) return `${sign}${(ev / 1e6).toFixed(4)} MeV`;
+  if (ev >= 1e3) return `${sign}${(ev / 1e3).toFixed(3)} keV`;
+  if (ev >= 1) return `${sign}${ev.toFixed(3)} eV`;
+  if (ev >= 1e-3) return `${sign}${(ev * 1e3).toFixed(3)} meV`;
+  if (ev >= 1e-6) return `${sign}${(ev * 1e6).toFixed(3)} µeV`;
+  return `${sign}${(ev * 1e9).toFixed(3)} neV`;
 }
 
 function atomHash() {
-  return `/atom?Z=${atomZ}&lepton=${atomLepton}&n=${atomN}${atomNumeric ? "&num=1" : ""}`;
+  const extra =
+    `${atomNucleus === "finite" ? "&nuc=finite" : ""}` +
+    `${atomIso !== "def" ? `&iso=${atomIso}` : ""}` +
+    `${atomReduced ? "&red=1" : ""}` +
+    `${atomUehling ? "&ueh=1" : ""}`;
+  return `/atom?Z=${atomZ}&lepton=${atomLepton}&n=${atomN}${atomNumeric ? "&num=1" : ""}${extra}`;
 }
 
 function solveAtom() {
   atomError = "";
+  // an isotope only exists for its element
+  if (!isoOptions(atomZ).includes(atomIso)) atomIso = "def";
+  const request: Record<string, unknown> = {
+    z: atomZ,
+    mass: atomMass(),
+    nMax: atomN,
+    numeric: atomNumeric,
+    nucleus: atomNucleus,
+  };
+  if (atomNucleus === "finite") {
+    const rms = radii[`radii/${atomIso}/rms_fm`];
+    if (rms) request.rms = rms;
+    else request.r0 = radii["radii/fallback/r0_fm"] ?? { value: 1.2, source: "literature", edition: "1988" };
+  }
+  if (atomReduced) {
+    request.reducedMass = true;
+    request.proton = particles["particles/proton/mass_MeV"];
+    request.neutron = particles["particles/neutron/mass_MeV"];
+    const a = isoMassNumber(atomZ, atomIso);
+    if (a !== undefined) request.massNumber = a;
+  }
+  if (atomUehling) {
+    request.uehling = true;
+    request.electronMass = particles["particles/electron/mass_MeV"] ?? atomMass();
+  }
   try {
-    const res = JSON.parse(
-      solve_atom_levels(
-        JSON.stringify({ z: atomZ, mass: atomMass(), nMax: atomN, numeric: atomNumeric }),
-      ),
-    ) as { levels: AtomLevel[]; method: string };
+    const res = JSON.parse(solve_atom_levels(JSON.stringify(request))) as {
+      levels: AtomLevel[];
+      lines: AtomLine[];
+      method: string;
+    };
     atomLevels = res.levels;
+    atomLines = res.lines ?? [];
     atomMethod = res.method;
   } catch (e) {
     atomError = String(e);
     atomLevels = [];
+    atomLines = [];
   }
   clearTimeout(urlTimer);
   urlTimer = setTimeout(() => setHash(atomHash()), 300);
+}
+
+// NIST reference line for the Z=1 electron cascade (data/lines.json).
+function nistLine(l: AtomLine): Provenance | undefined {
+  if (atomZ !== 1 || atomLepton !== "electron") return undefined;
+  return lineRefs[`lines/H/${l.to.n}-${l.from.n}/lambda_nm`];
 }
 
 function toggleView() {
@@ -690,6 +775,14 @@ onMount(async () => {
     const pdata = (await (await fetch("./particles.json")).json()) as { values?: Record<string, unknown> };
     particles = pdata.values ?? {};
   } catch { /* offline fallback defaults */ }
+  try {
+    const rdata = (await (await fetch("./radii.json")).json()) as { values?: Record<string, Provenance> };
+    radii = rdata.values ?? {};
+  } catch { /* offline fallback defaults */ }
+  try {
+    const ldata = (await (await fetch("./lines.json")).json()) as { values?: Record<string, Provenance> };
+    lineRefs = ldata.values ?? {};
+  } catch { /* offline fallback defaults */ }
   const atomRoute = applyHash();
   ready = true;
   lastWrittenHash = location.hash.replace(/^#/, "");
@@ -807,22 +900,60 @@ onMount(async () => {
             <option value="muon">muon</option>
           </select>
         </label>
+        <label>nucleus
+          <select bind:value={atomNucleus} on:change={solveAtom}>
+            <option value="point">point</option>
+            <option value="finite">finite 2pF</option>
+          </select>
+        </label>
+        <label>isotope
+          <select bind:value={atomIso} on:change={solveAtom}>
+            {#each isoOptions(atomZ) as o (o)}
+              <option value={o}>{o === "def" ? "default" : o}</option>
+            {/each}
+          </select>
+        </label>
         <label>n max <input type="number" min="1" max="6" bind:value={atomN} on:change={solveAtom} /></label>
         <label class="chk"><input type="checkbox" bind:checked={atomNumeric} on:change={solveAtom} /> numeric shooting</label>
+        <label class="chk"><input type="checkbox" bind:checked={atomReduced} on:change={solveAtom} /> reduced mass</label>
+        <label class="chk"><input type="checkbox" bind:checked={atomUehling} on:change={solveAtom} /> Uehling VP</label>
       </div>
       {#if atomError}<div class="error">{atomError}</div>{/if}
       <h2>binding energies ({atomMethod || "solving…"})</h2>
       {#each atomLevels as l (l.n + "/" + l.kappa)}
         <div class="atom-level">
-          <span class="lbl">{levelLabel(l)}</span>
+          <span class="lbl">{levelLabel(l.n, l.kappa)}</span>
           <span class="val">{fmtMev(l.binding.value)}</span>
           <span class="tot">E = {fmtMev(l.e.value)}</span>
+          {#if (atomNucleus === "finite" || atomUehling) && l.shift.value !== 0}
+            <span class="dshift">Δ = {fmtMev(l.shift.value)}</span>
+          {/if}
         </div>
       {/each}
+      {#if atomLines.length}
+        <h2>emission lines n+1 → n (p1/2 → s1/2)</h2>
+        {#each atomLines as l (`${l.from.n}/${l.to.n}`)}
+          {@const ref = nistLine(l)}
+          <div class="atom-level">
+            <span class="lbl">{levelLabel(l.from.n, l.from.kappa)} → {levelLabel(l.to.n, l.to.kappa)}</span>
+            <span class="val">{l.lambdaNm.value.toFixed(4)} nm</span>
+            <span class="tot">{fmtMev(l.dE.value)}</span>
+            {#if ref}
+              <span class="dshift">NIST {ref.value.toFixed(4)} nm · Δ {((l.lambdaNm.value - ref.value) * 1000).toFixed(1)} pm</span>
+            {/if}
+          </div>
+        {/each}
+      {/if}
       <p class="note">
-        hydrogen-like {atomLepton} on a point nucleus Z={atomZ}; lepton mass from {atomMassInfo()}
+        hydrogen-like {atomLepton} on a {atomNucleus === "finite" ? "two-parameter Fermi" : "point"}
+        nucleus Z={atomZ}; lepton mass from {atomMassInfo()}
         (provenance-tracked Value, energies derived from it). E includes rest mass;
-        binding = m − E. Finite-nucleus size and QED corrections are not included.
+        binding = m − E. Finite size: 2pF fold, a = 0.52 fm (Hofstadter 1956, Fricke 1995),
+        rms radii CODATA 2022 / Angeli &amp; Marinova 2013, fallback R = 1.2·A^(1/3) fm (Krane);
+        Δ is the first-order shift of the nuclear + Uehling potential
+        (Uehling 1935; validated against the −1.122e-7 eV 2S value, Greiner &amp; Reinhardt).
+        Reduced mass μ = m·M/(m+M), M = Z·m_p + N·m_n (binding neglected).
+        2pF solves numerically (n ≤ 3). λ = hc/dE, hc exact (SI-2019); NIST ASD v5.12 comparison.
       </p>
     </section>
   {/if}
@@ -891,6 +1022,7 @@ onMount(async () => {
   .atom-level .lbl { min-width: 56px; color: #9aa3b8; }
   .atom-level .val { min-width: 120px; }
   .atom-level .tot { color: #8b93a7; font-size: 12px; }
+  .atom-level .dshift { color: #7fd6a0; font-size: 12px; }
   .note { font-size: 11px; color: #8b93a7; }
   em { font-style: normal; font-size: 11px; }
 </style>

@@ -12,6 +12,12 @@
       "sha256": "1e208f5174db0680b667b147e41e3d072a0253c762e29d80da9dbddf989c7891",
       "source": "CODATA"
     },
+    "lines.json": {
+      "edition": "NIST ASD v5.12",
+      "fetched": "2026-09-06",
+      "sha256": "684fedda2776c39bb4e9b6e2a8a3f5f002bbb53e6dbefdb39d9341e031caab58",
+      "source": "NIST"
+    },
     "models.json": {
       "edition": "Pauling-1960",
       "fetched": "2026-09-06",
@@ -29,6 +35,12 @@
       "fetched": "2026-09-06",
       "sha256": "4e7b550d45bdcf77d42b63072091b0c0b174a816a16923317b830768ce85d232",
       "source": "PDG"
+    },
+    "radii.json": {
+      "edition": "CODATA 2022 / Angeli & Marinova 2013",
+      "fetched": "2026-09-06",
+      "sha256": "7744eade8f54a214a0e11ccfd12ebdf18e12424f0655f8db5bae1b6ca14e6749",
+      "source": "CODATA/literature"
     }
   },
   "generated": "2026-09-06",
