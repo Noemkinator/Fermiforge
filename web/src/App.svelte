@@ -42,6 +42,33 @@ let canvas: HTMLCanvasElement;
 let labelCanvas: HTMLCanvasElement | undefined;
 let renderer: Renderer;
 let scene: Scene = JSON.parse(DEFAULT_BENZENE);
+
+function clearScene() {
+  scene = {
+    schema: 3,
+    mode: "huckel",
+    atoms: [],
+    bonds: [],
+    charge: 0,
+    overrides: scene.overrides,
+    lepton: null,
+    nucleus_z: null,
+  };
+  selectedMo = null;
+  recompute();
+  scheduleUrl();
+}
+
+function resetAll() {
+  scene = JSON.parse(DEFAULT_BENZENE);
+  showAll = false;
+  selectedMo = null;
+  linkError = "";
+  computeError = "";
+  renderer.resetView();
+  recompute();
+  scheduleUrl();
+}
 let models: Record<string, { value: number; method?: string; source: string; edition: string }> = {};
 let bondRefs: unknown[] = [];
 let valences: Record<string, number> = {};
@@ -563,6 +590,8 @@ onMount(async () => {
     <div class="spacer"></div>
     <button on:click={() => (showPalette = !showPalette)}>elements</button>
     <button on:click={() => addAtom("C")}>+ C atom</button>
+    <button on:click={clearScene}>clear</button>
+    <button on:click={resetAll}>reset</button>
     <button on:click={copyLink}>{copied ? "copied!" : "copy link"}</button>
   </header>
   {#if linkError || computeError}<div class="error">{linkError || computeError}</div>{/if}
