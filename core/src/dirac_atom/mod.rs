@@ -1,4 +1,4 @@
-﻿//! Hydrogen-like atoms: analytic Dirac spectrum + radial Dirac shooting solver.
+//! Hydrogen-like atoms: analytic Dirac spectrum + radial Dirac shooting solver.
 //!
 //! Units: MeV, fm, natural units (hbar = c = 1 carried via HBARC).
 //! Energies include the lepton rest mass; binding energy = m - E.
@@ -97,8 +97,8 @@ pub fn solve_level_with_steps(z: u32, mass_mev: f64, n: u32, kappa: i32, steps: 
     } else {
         b * 1.5
     };
-    let gap_below = za * za * mass_mev / 2.0
-        * (1.0 / (n * n) as f64 - 1.0 / ((n + 1) * (n + 1)) as f64);
+    let gap_below =
+        za * za * mass_mev / 2.0 * (1.0 / (n * n) as f64 - 1.0 / ((n + 1) * (n + 1)) as f64);
     let lo = e_nr - 0.45 * gap;
     let hi = e_nr + 0.45 * gap_below;
 
@@ -138,16 +138,7 @@ pub fn solve_level_with_steps(z: u32, mass_mev: f64, n: u32, kappa: i32, steps: 
     0.5 * (a + bnd)
 }
 
-fn rk4_step(
-    r: f64,
-    r_new: f64,
-    p: f64,
-    q: f64,
-    kappa: i32,
-    e: f64,
-    m: f64,
-    za: f64,
-) -> (f64, f64) {
+fn rk4_step(r: f64, r_new: f64, p: f64, q: f64, kappa: i32, e: f64, m: f64, za: f64) -> (f64, f64) {
     // derivative w.r.t. x = ln r of (P, Q)
     let deriv = |rr: f64, pp: f64, qq: f64| -> (f64, f64) {
         let v = -za * HBARC / rr; // V(r) in MeV
