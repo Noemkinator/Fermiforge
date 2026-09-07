@@ -28,6 +28,18 @@ def _is_value_object(node: dict) -> bool:
     return "value" in node
 
 
+def _is_reference_table(node: dict) -> bool:
+    """Bulk reference table with section-level provenance (e.g. bond length
+    tables): floats inside `values` inherit source/edition from the wrapper."""
+    return (
+        "values" in node
+        and isinstance(node.get("source"), str)
+        and bool(node["source"].strip())
+        and isinstance(node.get("edition"), str)
+        and bool(node["edition"].strip())
+    )
+
+
 #: exact field set of a provenance Value (mirrors fermiforge_core::value::Value)
 KNOWN_VALUE_KEYS = frozenset(
     {
@@ -65,6 +77,8 @@ def _check_value_object(node: dict, path: str, errors: list[str]) -> None:
 
 def _walk(node, path: str, key: str | None, errors: list[str]) -> None:
     if isinstance(node, dict):
+        if _is_reference_table(node):
+            return
         if _is_value_object(node):
             _check_value_object(node, path, errors)
             # scalar fields of a provenance object are validated above;
