@@ -146,3 +146,28 @@ fn isolated_atom_is_a_radical_not_a_hydride() {
     valences.insert("C".to_string(), 4.0);
     assert_eq!(implicit_h(&atoms, &bonds, &valences), vec![3, 3, 0]);
 }
+
+#[test]
+fn five_single_bonds_on_carbon_break_one() {
+    let table = index_lengths(&refs());
+    let center = atom("C", 0.0, 0.0);
+    let neighbors: Vec<Atom> = (0..5)
+        .map(|i| {
+            let a = std::f64::consts::PI * 2.0 * (i as f64) / 5.0;
+            atom("C", a.cos() * 1.54, a.sin() * 1.54)
+        })
+        .collect();
+    let mut atoms = vec![center];
+    atoms.extend(neighbors);
+    let bonds = derive_bonded(&atoms, &table, &valences(), 1.6);
+    let sum: f64 = bonds
+        .iter()
+        .filter(|b| b.a == 0 || b.b == 0)
+        .map(|b| b.order)
+        .sum();
+    assert!(
+        sum <= 4.0 + 1e-9,
+        "central carbon sum {sum} exceeds valence 4"
+    );
+    assert_eq!(bonds.len(), 4, "one of the five spokes must break");
+}

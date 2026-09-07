@@ -310,7 +310,7 @@ function drawLabels(dpr: number) {
   ctx.fillStyle = "#e6eaf2";
   const hs = implicitH(bonds3);
   scene.atoms.forEach((a, i) => {
-    const [cx, cy] = renderer.toClip(a.x + 0.4, a.y + 0.4);
+    const [cx, cy] = renderer.project(a.x + 0.4, a.y + 0.4, a.z ?? 0);
     const h = hs[i] > 1 ? "H" + [...String(hs[i])].map((d) => SUBSCRIPT[+d]).join("") : hs[i] === 1 ? "H" : "";
     ctx.fillText(a.symbol + h, (cx * 0.5 + 0.5) * cw, (1 - (cy * 0.5 + 0.5)) * ch);
   });
@@ -549,6 +549,7 @@ onMount(async () => {
   (window as unknown as Record<string, unknown>).__fermiforge = {
     get scene() { return scene; },
     get bonds() { return bonds3; },
+    get modelsReady() { return bondRefs.length > 0; },
     get implicitH() { return implicitH(bonds3); },
     renderer,
     setAtoms(list: Atom[]) {

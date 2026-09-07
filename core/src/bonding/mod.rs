@@ -124,7 +124,7 @@ pub fn derive_bonded(
 /// bond order fits its standard valence. Unknown symbols are unconstrained.
 pub fn clamp_valence(
     atoms: &[Atom],
-    bonds: &mut [Bond],
+    bonds: &mut Vec<Bond>,
     table: &LengthTable,
     valences: &HashMap<String, f64>,
 ) {
@@ -164,7 +164,23 @@ pub fn clamp_valence(
             }
         }
         let Some((k, _)) = best else {
-            return; // cannot repair further (should not happen with single refs)
+            // no order downgrade left: the violator has too many sigma bonds,
+            // so the longest one must break entirely (e.g. 5 single bonds on C)
+            let mut worst: Option<(usize, f64)> = None;
+            for (k, b) in bonds.iter().enumerate() {
+                if (b.a as usize) != ai && (b.b as usize) != ai {
+                    continue;
+                }
+                let d = distance(&atoms[b.a as usize], &atoms[b.b as usize]);
+                if worst.is_none_or(|(_, wd)| d > wd) {
+                    worst = Some((k, d));
+                }
+            }
+            let Some((k, _)) = worst else {
+                return;
+            };
+            bonds.remove(k);
+            continue;
         };
         let b = bonds[k];
         let r = table
