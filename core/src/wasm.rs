@@ -109,8 +109,9 @@ pub fn solve_simple_huckel(request_json: &str) -> Result<String, JsValue> {
             })
             .collect::<Result<Vec<_>, _>>()?
     };
-    let solution = huckel::simple_huckel_weighted(req.n_atoms, &bonds, &req.alpha, &req.beta, req.electrons)
-        .map_err(to_js)?;
+    let solution =
+        huckel::simple_huckel_weighted(req.n_atoms, &bonds, &req.alpha, &req.beta, req.electrons)
+            .map_err(to_js)?;
     let response = serde_json::json!({
         "energies": solution.energies,
         "coefficients": solution.coefficients,
