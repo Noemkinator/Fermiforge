@@ -5,6 +5,7 @@
 //! every value arrives from `data/` through the provenance-tracked
 //! [`value::Value`] type (PLAN.md § 13.2–13.3).
 
+pub mod dirac_atom;
 pub mod huckel;
 pub mod state;
 pub mod value;
