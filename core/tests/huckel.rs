@@ -202,3 +202,37 @@ fn determinism_same_input_same_output() {
     };
     assert_eq!(run(), run());
 }
+
+#[test]
+fn weighted_double_bond_scales_beta() {
+    let sol = fermiforge_core::huckel::simple_huckel_weighted(
+        2,
+        &[(0, 1, 2.0)],
+        &alpha(),
+        &beta(),
+        2,
+    )
+    .expect("weighted ethene");
+    assert!((sol.energies[0].value + 2.0).abs() < 1e-9, "bonding at 2*beta");
+    assert!((sol.energies[1].value - 2.0).abs() < 1e-9, "antibonding at -2*beta");
+}
+
+#[test]
+fn weighted_aromatic_ring_scales_gap() {
+    let bonds: Vec<(usize, usize, f64)> = benzene_bonds()
+        .iter()
+        .map(|&(i, j)| (i, j, 1.5))
+        .collect();
+    let sol = fermiforge_core::huckel::simple_huckel_weighted(6, &bonds, &alpha(), &beta(), 6)
+        .expect("weighted benzene");
+    assert!((sol.gap().unwrap() - 3.0).abs() < 0.02, "gap scales with order");
+}
+
+#[test]
+fn negative_bond_weight_is_rejected() {
+    let err = fermiforge_core::huckel::simple_huckel_weighted(2, &[(0, 1, -1.0)], &alpha(), &beta(), 2);
+    assert!(matches!(
+        err,
+        Err(HuckelError::InvalidBondWeight { weight: -1.0 })
+    ));
+}

@@ -75,6 +75,8 @@ pub fn derive_bonded(request_json: &str) -> Result<String, JsValue> {
 struct HuckelRequest {
     n_atoms: usize,
     bonds: Vec<[usize; 2]>,
+    #[serde(default)]
+    orders: Vec<String>,
     alpha: Value,
     beta: Value,
     electrons: usize,
@@ -87,8 +89,27 @@ struct HuckelRequest {
 #[wasm_bindgen]
 pub fn solve_simple_huckel(request_json: &str) -> Result<String, JsValue> {
     let req: HuckelRequest = serde_json::from_str(request_json).map_err(to_js)?;
-    let bonds: Vec<(usize, usize)> = req.bonds.iter().map(|b| (b[0], b[1])).collect();
-    let solution = huckel::simple_huckel(req.n_atoms, &bonds, &req.alpha, &req.beta, req.electrons)
+    let bonds: Vec<(usize, usize, f64)> = if req.orders.is_empty() {
+        req.bonds.iter().map(|b| (b[0], b[1], 1.0)).collect()
+    } else {
+        if req.orders.len() != req.bonds.len() {
+            return Err(to_js(format!(
+                "orders length {} != bonds length {}",
+                req.orders.len(),
+                req.bonds.len()
+            )));
+        }
+        req.bonds
+            .iter()
+            .zip(&req.orders)
+            .map(|(b, o)| {
+                o.parse::<f64>()
+                    .map(|w| (b[0], b[1], w))
+                    .map_err(|e| to_js(format!("invalid bond order {o:?}: {e}")))
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    };
+    let solution = huckel::simple_huckel_weighted(req.n_atoms, &bonds, &req.alpha, &req.beta, req.electrons)
         .map_err(to_js)?;
     let response = serde_json::json!({
         "energies": solution.energies,

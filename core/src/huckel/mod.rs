@@ -43,6 +43,8 @@ pub enum HuckelError {
     NotPositiveDefinite,
     #[error("invalid electron count {electrons} for {orbitals} orbitals")]
     InvalidElectronCount { electrons: usize, orbitals: usize },
+    #[error("invalid bond weight {weight}")]
+    InvalidBondWeight { weight: f64 },
 }
 
 /// Dense row-major matrix.
@@ -248,6 +250,19 @@ pub fn simple_huckel(
     beta: &Value,
     electrons: usize,
 ) -> Result<HuckelSolution, HuckelError> {
+    let weighted: Vec<(usize, usize, f64)> = bonds.iter().map(|&(i, j)| (i, j, 1.0)).collect();
+    simple_huckel_weighted(n_atoms, &weighted, alpha, beta, electrons)
+}
+
+/// Like [`simple_huckel`] but each bond carries a resonance weight (bond
+/// order): `H_ij = weight * beta`. Weights must be finite and non-negative.
+pub fn simple_huckel_weighted(
+    n_atoms: usize,
+    bonds: &[(usize, usize, f64)],
+    alpha: &Value,
+    beta: &Value,
+    electrons: usize,
+) -> Result<HuckelSolution, HuckelError> {
     if electrons > 2 * n_atoms {
         return Err(HuckelError::InvalidElectronCount {
             electrons,
@@ -255,9 +270,12 @@ pub fn simple_huckel(
         });
     }
     let mut adjacency = vec![vec![0.0; n_atoms]; n_atoms];
-    for &(i, j) in bonds {
-        adjacency[i][j] = 1.0;
-        adjacency[j][i] = 1.0;
+    for &(i, j, w) in bonds {
+        if !w.is_finite() || w < 0.0 {
+            return Err(HuckelError::InvalidBondWeight { weight: w });
+        }
+        adjacency[i][j] = w;
+        adjacency[j][i] = w;
     }
     let (k_values, vectors) = jacobi_eigen(&adjacency);
     // order orbitals by energy alpha + k*beta (sign of beta decides the order)

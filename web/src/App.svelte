@@ -154,6 +154,36 @@ function currentBonds(): Bond[] {
   return scene.bonds.length > 0 ? scene.bonds : deriveBonded();
 }
 
+let showAll = false;
+let piExists = false;
+let frameworkShown = false;
+
+function clampExplicit(bonds: Bond[]): Bond[] {
+  const out = bonds.map((b) => ({ ...b }));
+  for (let iter = 0; iter < 128; iter++) {
+    const sums = scene.atoms.map(() => 0);
+    for (const b of out) {
+      if (b.a < sums.length) sums[b.a] += b.order;
+      if (b.b < sums.length) sums[b.b] += b.order;
+    }
+    let worst = -1;
+    for (let i = 0; i < sums.length; i++) {
+      const v = valences[scene.atoms[i].symbol];
+      if (v !== undefined && sums[i] > v) {
+        worst = i;
+        break;
+      }
+    }
+    if (worst < 0) return out;
+    const target = out
+      .filter((b) => (b.a === worst || b.b === worst) && b.order > 1)
+      .sort((x, y) => y.order - x.order)[0];
+    if (!target) return out;
+    target.order = target.order > 2 ? 2 : target.order > 1.5 ? 1.5 : 1;
+  }
+  return out;
+}
+
 function implicitH(bonds: Bond[]): number[] {
   const sums = scene.atoms.map(() => 0);
   for (const b of bonds) {
@@ -171,11 +201,20 @@ function recompute() {
   try {
     bonds3 = currentBonds();
     const pi = bonds3.filter((b) => b.order >= 1.5);
-    const piAtoms = [...new Set(pi.flatMap((b) => [b.a, b.b]))].sort((x, y) => x - y);
-    piIndex = new Map(piAtoms.map((a, k) => [a, k]));
-    const piBonds = pi.map((b) => [piIndex.get(b.a)!, piIndex.get(b.b)!]);
-    const electrons = Math.max(0, piAtoms.length - scene.charge);
-    if (piAtoms.length === 0) {
+    piExists = pi.length > 0;
+    frameworkShown = showAll || !piExists;
+    let solveAtoms: number[];
+    let solveBonds: [number, number][];
+    if (frameworkShown) {
+      solveAtoms = scene.atoms.map((_, i) => i);
+      solveBonds = bonds3.map((b) => [b.a, b.b] as [number, number]);
+    } else {
+      solveAtoms = [...new Set(pi.flatMap((b) => [b.a, b.b]))].sort((x, y) => x - y);
+      const idx = new Map(solveAtoms.map((a, k) => [a, k]));
+      solveBonds = pi.map((b) => [idx.get(b.a)!, idx.get(b.b)!] as [number, number]);
+    }
+    piIndex = new Map(solveAtoms.map((a, k) => [a, k]));
+    if (solveAtoms.length === 0) {
       energies = [];
       coefficients = [];
       homo = lumo = gap = totalEnergy = null;
@@ -183,15 +222,18 @@ function recompute() {
       render();
       return;
     }
+    const electrons = Math.max(0, solveAtoms.length - scene.charge);
     const alpha = param("models/huckel/alpha_eV", 0.0);
     const beta = param("models/huckel/beta_eV", -2.7);
-    const res = JSON.parse(solve_simple_huckel(JSON.stringify({
-      nAtoms: piAtoms.length,
-      bonds: piBonds,
+    const request: Record<string, unknown> = {
+      nAtoms: solveAtoms.length,
+      bonds: solveBonds,
       alpha,
       beta,
       electrons,
-    })));
+    };
+    if (frameworkShown) request.orders = bonds3.map((b) => String(b.order));
+    const res = JSON.parse(solve_simple_huckel(JSON.stringify(request)));
     energies = res.energies;
     coefficients = res.coefficients;
     homo = res.homo;
@@ -502,6 +544,7 @@ onMount(async () => {
   if (location.hash.startsWith("#/s=")) {
     try {
       scene = fromWire(JSON.parse(decode_scene_fragment(location.hash)));
+      scene.bonds = clampExplicit(scene.bonds);
       if (scene.mode !== "huckel") linkError = "atom scenes arrive in M3; showing Hückel layer";
     } catch (e) {
       linkError = `Bad shared link: ${e}. Loaded benzene instead.`;
@@ -546,9 +589,14 @@ onMount(async () => {
       </div>
     {/if}
     <aside>
-      <h2>π orbital energies (eV)</h2>
+      <h2>{frameworkShown ? "σ+π" : "π"} orbital energies (eV)</h2>
+      <div class="modes">
+        <button class="mode" class:sel={!frameworkShown} disabled={!piExists} on:click={() => { showAll = false; recompute(); }}>π only</button>
+        <button class="mode" class:sel={frameworkShown} disabled={!scene.atoms.length} on:click={() => { showAll = true; recompute(); }}>σ+π framework</button>
+      </div>
       {#each energies as e, i}
         <button
+          class="level"
           class:selected={selectedMo === i}
           class:homo={homo === i}
           class:lumo={lumo === i}
@@ -561,9 +609,9 @@ onMount(async () => {
         </button>
       {/each}
       {#if gap !== null}<p class="stat">HOMO–LUMO gap: <strong>{gap.toFixed(3)} eV</strong></p>{/if}
-      {#if totalEnergy !== null}<p class="stat">total π energy: <strong>{totalEnergy.toFixed(3)} eV</strong></p>{/if}
-      {#if !energies.length && scene.atoms.length}
-        <p class="stat">no π system — all bonds are single (click a bond to change its order)</p>
+      {#if totalEnergy !== null}<p class="stat">total {frameworkShown ? "framework" : "π"} energy: <strong>{totalEnergy.toFixed(3)} eV</strong></p>{/if}
+      {#if !piExists && scene.atoms.length}
+        <p class="stat">no π bonds — showing σ+π framework (click a bond to add π character)</p>
       {/if}
       <h2>model parameters</h2>
       {#each PARAMS as p}
@@ -622,6 +670,10 @@ onMount(async () => {
   .palette .el:hover { background: #3a4560; outline: 1px solid #6ea8ff; }
   aside { width: 260px; padding: 12px; border-left: 1px solid #262b38; overflow-y: auto; }
   h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: #8b93a7; }
+  .modes { display: flex; gap: 6px; margin: 6px 0 10px; }
+  .mode { flex: 1; padding: 4px 6px; font-size: 12px; justify-content: center; }
+  .mode.sel { outline: 1px solid #6ea8ff; }
+  .mode:disabled { opacity: 0.4; }
   aside button { display: flex; align-items: center; gap: 8px; width: 100%; margin: 2px 0; text-align: left; font-variant-numeric: tabular-nums; }
   aside button.selected { outline: 1px solid #6ea8ff; }
   aside button.homo em { color: #ffb066; }
