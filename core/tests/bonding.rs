@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use fermiforge_core::bonding::{BondLength, derive_bonded, implicit_h, index_lengths};
-use fermiforge_core::state::Atom;
+use fermiforge_core::state::{Atom, Bond};
 
 fn refs() -> Vec<BondLength> {
     serde_json::from_str(
@@ -117,4 +117,32 @@ fn unknown_symbols_use_fallback_and_no_valence_clamp() {
     assert_eq!(bonds.len(), 1);
     assert_eq!(bonds[0].order, 1.0);
     assert_eq!(implicit_h(&atoms, &bonds, &valences()), vec![0, 0]);
+}
+
+#[test]
+fn isolated_atom_is_a_radical_not_a_hydride() {
+    let atoms = vec![
+        Atom {
+            symbol: "C".into(),
+            x: 0.0,
+            y: 0.0,
+            z: 0.0,
+        },
+        Atom {
+            symbol: "C".into(),
+            x: 1.54,
+            y: 0.0,
+            z: 0.0,
+        },
+        Atom {
+            symbol: "C".into(),
+            x: 0.0,
+            y: 9.0,
+            z: 0.0,
+        },
+    ];
+    let bonds = vec![Bond::single(0, 1)];
+    let mut valences = HashMap::new();
+    valences.insert("C".to_string(), 4.0);
+    assert_eq!(implicit_h(&atoms, &bonds, &valences), vec![3, 3, 0]);
 }

@@ -219,7 +219,8 @@ function implicitH(bonds: Bond[]): number[] {
   }
   return scene.atoms.map((a, i) => {
     const v = valences[a.symbol];
-    return v === undefined ? 0 : Math.max(0, Math.round(v - sums[i]));
+    if (v === undefined || sums[i] === 0) return 0;
+    return Math.max(0, Math.round(v - sums[i]));
   });
 }
 

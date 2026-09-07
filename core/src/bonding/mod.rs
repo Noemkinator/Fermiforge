@@ -177,7 +177,9 @@ pub fn clamp_valence(
     }
 }
 
-/// Implicit hydrogens per atom: valence minus summed bond order.
+/// Implicit hydrogens per atom: valence minus summed bond order. Atoms
+/// without any bond are treated as bare radicals (no implicit H) — a lone
+/// carbon is C, not methane.
 #[must_use]
 pub fn implicit_h(atoms: &[Atom], bonds: &[Bond], valences: &HashMap<String, f64>) -> Vec<u32> {
     let mut sums = vec![0.0f64; atoms.len()];
@@ -189,6 +191,9 @@ pub fn implicit_h(atoms: &[Atom], bonds: &[Bond], valences: &HashMap<String, f64
         .iter()
         .enumerate()
         .map(|(i, a)| {
+            if sums[i] == 0.0 {
+                return 0;
+            }
             valences
                 .get(&a.symbol)
                 .map_or(0.0, |v| (v - sums[i]).max(0.0))
