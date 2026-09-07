@@ -3,7 +3,7 @@
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use fermiforge_core::state::{Atom, MAX_ATOMS, Mode, Override, Scene, StateError};
+use fermiforge_core::state::{Atom, Bond, MAX_ATOMS, Mode, Override, Scene, StateError};
 
 fn craft(json: &str) -> String {
     let deflated = miniz_oxide::deflate::compress_to_vec(json.as_bytes(), 9);
@@ -120,7 +120,7 @@ fn serialization_is_deterministic() {
 fn key_order_is_canonical() {
     let scene = Scene {
         atoms: benzene().atoms,
-        bonds: vec![[0, 1], [1, 2]],
+        bonds: vec![Bond::single(0, 1), Bond::single(1, 2)],
         charge: 1,
         ..muonic_lead()
     };
@@ -160,8 +160,8 @@ fn defaults_are_omitted() {
 #[test]
 fn rejects_unknown_version() {
     assert_eq!(
-        Scene::from_url_fragment("v3.abc"),
-        Err(StateError::UnknownVersion("v3".into()))
+        Scene::from_url_fragment("v4.abc"),
+        Err(StateError::UnknownVersion("v4".into()))
     );
     assert_eq!(
         Scene::from_url_fragment("vx.abc"),
@@ -299,4 +299,13 @@ fn readable_form_is_rejected_until_m3() {
             "readable query form (#/atom?...) is scheduled for M3"
         ))
     );
+}
+
+#[test]
+fn v2_bond_pairs_migrate_to_single_orders() {
+    let json = r#"{"schema":2,"atoms":[{"symbol":"C","x":0,"y":0,"z":0},{"symbol":"C","x":134,"y":0,"z":0}],"bonds":[[0,1]]}"#;
+    let deflated = miniz_oxide::deflate::compress_to_vec(json.as_bytes(), 9);
+    let frag = format!("v2.{}", URL_SAFE_NO_PAD.encode(&deflated));
+    let scene = Scene::from_url_fragment(&frag).expect("v2 fixture decodes");
+    assert_eq!(scene.bonds, vec![Bond::single(0, 1)]);
 }

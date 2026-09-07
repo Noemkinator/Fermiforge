@@ -45,6 +45,32 @@ pub fn derive_bonds(request_json: &str) -> Result<String, JsValue> {
 }
 
 #[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BondedRequest {
+    atoms: Vec<crate::state::Atom>,
+    refs: Vec<crate::bonding::BondLength>,
+    valences: std::collections::HashMap<String, f64>,
+    #[serde(default)]
+    fallback_single: Option<f64>,
+}
+
+/// Derive bonds with orders from geometry. Input
+/// `{ atoms, refs: [BondLength], valences: {symbol: n}, fallback_single? }`,
+/// output `[[a, b]] | [[a, b, "order"]]`.
+#[wasm_bindgen]
+pub fn derive_bonded(request_json: &str) -> Result<String, JsValue> {
+    let req: BondedRequest = serde_json::from_str(request_json).map_err(to_js)?;
+    let table = crate::bonding::index_lengths(&req.refs);
+    let bonds = crate::bonding::derive_bonded(
+        &req.atoms,
+        &table,
+        &req.valences,
+        req.fallback_single.unwrap_or(1.6),
+    );
+    serde_json::to_string(&bonds).map_err(to_js)
+}
+
+#[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HuckelRequest {
     n_atoms: usize,

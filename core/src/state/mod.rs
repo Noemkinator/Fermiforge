@@ -15,9 +15,10 @@ use thiserror::Error;
 
 /// Current scene schema version (serialized in every payload).
 /// v2: added explicit `bonds` (v1 scenes migrate to empty = derive from geometry).
-pub const SCHEMA_VERSION: u32 = 2;
+/// v3: bonds carry a bond order (1, 1.5, 2, 3); v2 pairs migrate to order 1.
+pub const SCHEMA_VERSION: u32 = 3;
 /// URL format version prefix (PLAN.md § 7.5).
-pub const URL_VERSION_PREFIX: &str = "v2.";
+pub const URL_VERSION_PREFIX: &str = "v3.";
 /// Fragment prefix used by the web app: `#/s=<payload>`.
 pub const URL_FRAGMENT_PREFIX: &str = "#/s=";
 
@@ -151,6 +152,78 @@ impl Default for Override {
     }
 }
 
+/// A bond between two atoms with a bond order: 1.0 single, 1.5 aromatic,
+/// 2.0 double, 3.0 triple. Serialized compactly: `[a, b]` when single,
+/// `[a, b, "order"]` otherwise (schema v3).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Bond {
+    pub a: u16,
+    pub b: u16,
+    pub order: f64,
+}
+
+impl Bond {
+    #[must_use]
+    pub const fn single(a: u16, b: u16) -> Self {
+        Self { a, b, order: 1.0 }
+    }
+
+    #[must_use]
+    pub fn is_pi(&self) -> bool {
+        self.order >= 1.5
+    }
+}
+
+impl Serialize for Bond {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        if self.order == 1.0 {
+            let mut seq = s.serialize_seq(Some(2))?;
+            seq.serialize_element(&self.a)?;
+            seq.serialize_element(&self.b)?;
+            seq.end()
+        } else {
+            let mut seq = s.serialize_seq(Some(3))?;
+            seq.serialize_element(&self.a)?;
+            seq.serialize_element(&self.b)?;
+            seq.serialize_element(&self.order.to_string())?;
+            seq.end()
+        }
+    }
+}
+
+struct BondVisitor;
+
+impl<'de> serde::de::Visitor<'de> for BondVisitor {
+    type Value = Bond;
+
+    fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.write_str("[a, b] or [a, b, \"order\"]")
+    }
+
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Bond, A::Error> {
+        let a: u16 = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(0, &self))?;
+        let b: u16 = seq
+            .next_element()?
+            .ok_or_else(|| serde::de::Error::invalid_length(1, &self))?;
+        let order = match seq.next_element::<String>()? {
+            Some(text) => text.parse::<f64>().map_err(|e| {
+                serde::de::Error::custom(format!("invalid bond order {text:?}: {e}"))
+            })?,
+            None => 1.0,
+        };
+        Ok(Bond { a, b, order })
+    }
+}
+
+impl<'de> Deserialize<'de> for Bond {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Bond, D::Error> {
+        d.deserialize_seq(BondVisitor)
+    }
+}
+
 /// Full scene description: inputs only, never computed data.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
@@ -161,10 +234,10 @@ pub struct Scene {
     pub mode: Mode,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub atoms: Vec<Atom>,
-    /// Explicit pi-system bonds as atom index pairs; empty means "derive
-    /// from geometry" (added in schema v2).
+    /// Explicit bonds with bond orders as `[a, b]` / `[a, b, "order"]` pairs;
+    /// empty means "derive from geometry" (orders added in schema v3).
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub bonds: Vec<[u16; 2]>,
+    pub bonds: Vec<Bond>,
     #[serde(skip_serializing_if = "is_zero_i32")]
     pub charge: i32,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -232,6 +305,7 @@ impl Scene {
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
         });
+        out.bonds.sort_by_key(|b| (b.a, b.b));
         out
     }
 
@@ -253,10 +327,18 @@ impl Scene {
         }
         let n_atoms = self.atoms.len();
         for bond in &self.bonds {
-            if bond[0] as usize >= n_atoms || bond[1] as usize >= n_atoms {
+            if bond.a as usize >= n_atoms || bond.b as usize >= n_atoms || bond.a == bond.b {
                 return Err(StateError::InvalidField {
                     field: "bond",
-                    reason: format!("{bond:?} references atom outside 0..{n_atoms}"),
+                    reason: format!(
+                        "{bond:?} references atom outside 0..{n_atoms} or is a self-loop"
+                    ),
+                });
+            }
+            if ![1.0, 1.5, 2.0, 3.0].contains(&bond.order) {
+                return Err(StateError::InvalidField {
+                    field: "bond.order",
+                    reason: format!("{} is not one of 1, 1.5, 2, 3", bond.order),
                 });
             }
         }
@@ -430,6 +512,15 @@ fn migrate_step(from: u32, value: serde_json::Value) -> Result<serde_json::Value
             };
             map.insert("bonds".into(), serde_json::json!([]));
             map.insert("schema".into(), serde_json::json!(2));
+            Ok(serde_json::Value::Object(map))
+        }
+        // v2 -> v3: bonds gained an order; v2 pairs deserialize as single bonds
+        2 => {
+            let mut map = match value {
+                serde_json::Value::Object(map) => map,
+                _ => return Err(StateError::Corrupted("migration on non-object".into())),
+            };
+            map.insert("schema".into(), serde_json::json!(3));
             Ok(serde_json::Value::Object(map))
         }
         _ => Err(StateError::UnknownVersion(format!(

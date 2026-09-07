@@ -29,5 +29,51 @@
       "url": "https://en.wikipedia.org/wiki/Covalent_radius (C-C 1.54 A, general 1.6 A cutoff)",
       "value": 1.6
     }
+  },
+  "bond_lengths": {
+    "edition": "CRC-97th",
+    "fetched": "2026-09-07",
+    "method": "typical equilibrium bond lengths per element pair; order inferred by nearest reference",
+    "source": "literature",
+    "url": "https://en.wikipedia.org/wiki/Carbon%E2%80%93carbon_bond (single 1.54, double 1.34, triple 1.20, aromatic 1.39 angstrom)",
+    "values": [
+      { "a": "C", "b": "C", "single": 1.54, "double": 1.34, "triple": 1.20, "aromatic": 1.39 },
+      { "a": "C", "b": "N", "single": 1.47, "double": 1.28, "triple": 1.16, "aromatic": 1.34 },
+      { "a": "C", "b": "O", "single": 1.43, "double": 1.23, "aromatic": 1.36 },
+      { "a": "C", "b": "S", "single": 1.82, "double": 1.60, "aromatic": 1.71 },
+      { "a": "C", "b": "P", "single": 1.84, "double": 1.66 },
+      { "a": "C", "b": "B", "single": 1.56 },
+      { "a": "C", "b": "F", "single": 1.35 },
+      { "a": "C", "b": "Cl", "single": 1.77 },
+      { "a": "C", "b": "Br", "single": 1.94 },
+      { "a": "C", "b": "I", "single": 2.14 },
+      { "a": "C", "b": "H", "single": 1.09 },
+      { "a": "C", "b": "Si", "single": 1.86 },
+      { "a": "N", "b": "N", "single": 1.45, "double": 1.25, "triple": 1.10, "aromatic": 1.35 },
+      { "a": "N", "b": "O", "single": 1.40, "double": 1.21, "aromatic": 1.30 },
+      { "a": "N", "b": "H", "single": 1.01 },
+      { "a": "O", "b": "O", "single": 1.48, "double": 1.21 },
+      { "a": "O", "b": "H", "single": 0.96 },
+      { "a": "O", "b": "S", "single": 1.57, "double": 1.44 },
+      { "a": "S", "b": "S", "single": 2.05, "double": 1.90 },
+      { "a": "S", "b": "H", "single": 1.34 },
+      { "a": "H", "b": "H", "single": 0.74 },
+      { "a": "P", "b": "O", "single": 1.63, "double": 1.48 },
+      { "a": "N", "b": "S", "single": 1.71, "double": 1.54 }
+    ]
+  },
+  "valences": {
+    "edition": "common-organic-1",
+    "fetched": "2026-09-07",
+    "method": "standard valence used to clamp summed bond orders; implicit hydrogens fill the rest",
+    "source": "literature",
+    "url": "https://en.wikipedia.org/wiki/Valence_(chemistry)",
+    "values": {
+      "H": 1, "F": 1, "Cl": 1, "Br": 1, "I": 1,
+      "O": 2, "S": 2,
+      "B": 3, "N": 3, "P": 3,
+      "C": 4, "Si": 4,
+      "Li": 1, "Na": 1, "K": 1, "Mg": 2, "Ca": 2, "He": 0, "Ne": 0, "Ar": 0, "Kr": 0
+    }
   }
 }

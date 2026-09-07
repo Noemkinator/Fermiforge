@@ -2,18 +2,20 @@
 import { onMount } from "svelte";
 import init, {
   decode_scene_fragment,
-  derive_bonds,
+  derive_bonded,
   encode_scene_fragment,
   solve_simple_huckel,
 } from "../wasm-pkg/fermiforge_core.js";
 import { Renderer, type AtomView, type Lobe } from "./renderer";
 
 interface Atom { symbol: string; x: number; y: number; z: number }
+interface Bond { a: number; b: number; order: number }
+type WireBond = [number, number] | [number, number, string | number];
 interface Scene {
   schema: number;
   mode: string;
   atoms: Atom[];
-  bonds: [number, number][];
+  bonds: Bond[];
   charge: number;
   overrides: { key: string; value: string | number }[];
   lepton: string | null;
@@ -21,8 +23,11 @@ interface Scene {
 }
 interface ModelParam { value: number; method?: string; source: string; edition: string }
 
+const ORDER_CYCLE = [1, 1.5, 2, 3];
+const SUBSCRIPT = "₀₁₂₃₄";
+
 const DEFAULT_BENZENE = JSON.stringify({
-  schema: 2,
+  schema: 3,
   mode: "huckel",
   atoms: Array.from({ length: 6 }, (_, k) => {
     const a = (Math.PI / 3) * k;
@@ -38,6 +43,10 @@ let labelCanvas: HTMLCanvasElement | undefined;
 let renderer: Renderer;
 let scene: Scene = JSON.parse(DEFAULT_BENZENE);
 let models: Record<string, { value: number; method?: string; source: string; edition: string }> = {};
+let bondRefs: unknown[] = [];
+let valences: Record<string, number> = {};
+let bonds3: Bond[] = [];
+let piIndex: Map<number, number> = new Map();
 let energies: { value: number; source: string; method?: string }[] = [];
 let coefficients: number[][] = [];
 let homo: number | null = null;
@@ -105,31 +114,83 @@ function toWire(s: Scene) {
       z: Math.round(a.z * 100),
     })),
     overrides: s.overrides.map((o) => ({ key: o.key, value: String(o.value) })),
+    bonds: s.bonds.map((b): WireBond =>
+      b.order === 1 ? [b.a, b.b] : [b.a, b.b, String(b.order)]),
   };
 }
 
-function fromWire(w: Scene): Scene {
+interface WireScene extends Omit<Scene, "bonds"> { bonds: WireBond[] }
+
+function fromWire(w: WireScene): Scene {
   return {
     ...w,
     atoms: w.atoms.map((a) => ({ symbol: a.symbol, x: a.x / 100, y: a.y / 100, z: a.z / 100 })),
+    bonds: (w.bonds ?? []).map((b) => ({
+      a: b[0],
+      b: b[1],
+      order: b.length > 2 ? parseFloat(String(b[2])) : 1,
+    })),
   };
+}
+
+function deriveBonded(): Bond[] {
+  try {
+    return (JSON.parse(derive_bonded(JSON.stringify({
+      atoms: toWire(scene).atoms,
+      refs: bondRefs,
+      valences,
+      fallback_single: valueOf("models/huckel/bond_cutoff_angstrom", 1.6),
+    }))) as WireBond[]).map((wb) => ({
+      a: wb[0],
+      b: wb[1],
+      order: wb.length > 2 ? parseFloat(String(wb[2])) : 1,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+function currentBonds(): Bond[] {
+  return scene.bonds.length > 0 ? scene.bonds : deriveBonded();
+}
+
+function implicitH(bonds: Bond[]): number[] {
+  const sums = scene.atoms.map(() => 0);
+  for (const b of bonds) {
+    sums[b.a] += b.order;
+    sums[b.b] += b.order;
+  }
+  return scene.atoms.map((a, i) => {
+    const v = valences[a.symbol];
+    return v === undefined ? 0 : Math.max(0, Math.round(v - sums[i]));
+  });
 }
 
 function recompute() {
   if (!ready) return;
   try {
-    const cutoff = param("models/huckel/bond_cutoff_angstrom", 1.6);
-    const bonds: [number, number][] = scene.bonds.length > 0
-      ? scene.bonds
-      : JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
+    bonds3 = currentBonds();
+    const pi = bonds3.filter((b) => b.order >= 1.5);
+    const piAtoms = [...new Set(pi.flatMap((b) => [b.a, b.b]))].sort((x, y) => x - y);
+    piIndex = new Map(piAtoms.map((a, k) => [a, k]));
+    const piBonds = pi.map((b) => [piIndex.get(b.a)!, piIndex.get(b.b)!]);
+    const electrons = Math.max(0, piAtoms.length - scene.charge);
+    if (piAtoms.length === 0) {
+      energies = [];
+      coefficients = [];
+      homo = lumo = gap = totalEnergy = null;
+      computeError = "";
+      render();
+      return;
+    }
     const alpha = param("models/huckel/alpha_eV", 0.0);
     const beta = param("models/huckel/beta_eV", -2.7);
     const res = JSON.parse(solve_simple_huckel(JSON.stringify({
-      nAtoms: scene.atoms.length,
-      bonds,
+      nAtoms: piAtoms.length,
+      bonds: piBonds,
       alpha,
       beta,
-      electrons: scene.atoms.length, // approximation: one pi electron per atom
+      electrons,
     })));
     energies = res.energies;
     coefficients = res.coefficients;
@@ -149,12 +210,10 @@ $: maxAbs = Math.max(1e-9, ...energies.map((x) => Math.abs(x.value)));
 function lobes(): Lobe[] {
   const mo = selectedMo;
   if (mo === null || !coefficients[mo]) return [];
-  return scene.atoms.map((a, i) => ({
-    x: a.x,
-    y: a.y,
-    radius: 0.25 + 0.85 * Math.abs(coefficients[mo][i]),
-    sign: coefficients[mo][i],
-  }));
+  return scene.atoms.map((a, i) => {
+    const c = piIndex.has(i) ? coefficients[mo][piIndex.get(i)!] : 0;
+    return { x: a.x, y: a.y, radius: 0.25 + 0.85 * Math.abs(c), sign: c };
+  });
 }
 
 function render() {
@@ -162,13 +221,7 @@ function render() {
   const w = canvas.clientWidth * dpr, h = canvas.clientHeight * dpr;
   if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
   const atoms: AtomView[] = scene.atoms;
-  const bonds: [number, number][] = scene.bonds.length > 0
-    ? scene.bonds
-    : (() => { try {
-        const cutoff = param("models/huckel/bond_cutoff_angstrom", 1.6);
-        return JSON.parse(derive_bonds(JSON.stringify({ atoms: toWire(scene).atoms, cutoff })));
-      } catch { return []; } })();
-  renderer.draw(atoms, bonds, lobes());
+  renderer.draw(atoms, bonds3.map((b) => [b.a, b.b, b.order]), lobes());
   drawLabels(dpr);
 }
 
@@ -185,10 +238,12 @@ function drawLabels(dpr: number) {
   ctx.clearRect(0, 0, cw, ch);
   ctx.font = "12px system-ui, sans-serif";
   ctx.fillStyle = "#e6eaf2";
-  for (const a of scene.atoms) {
+  const hs = implicitH(bonds3);
+  scene.atoms.forEach((a, i) => {
     const [cx, cy] = renderer.toClip(a.x + 0.4, a.y + 0.4);
-    ctx.fillText(a.symbol, (cx * 0.5 + 0.5) * cw, (1 - (cy * 0.5 + 0.5)) * ch);
-  }
+    const h = hs[i] > 1 ? "H" + [...String(hs[i])].map((d) => SUBSCRIPT[+d]).join("") : hs[i] === 1 ? "H" : "";
+    ctx.fillText(a.symbol + h, (cx * 0.5 + 0.5) * cw, (1 - (cy * 0.5 + 0.5)) * ch);
+  });
 }
 
 function scheduleUrl() {
@@ -273,17 +328,70 @@ function onMove(ev: PointerEvent) {
     moved = true;
     render();
   } else {
-    canvas.style.cursor = pick(cx, cy) >= 0 ? "grab" : "crosshair";
+    canvas.style.cursor = pick(cx, cy) >= 0 ? "grab" : pickBond(ev) >= 0 ? "pointer" : "crosshair";
   }
   lastClip = [cx, cy];
 }
 
-function onUp() {
+function pickBond(ev: PointerEvent): number {
+  const rect = canvas.getBoundingClientRect();
+  const sx = (c: number) => (c * 0.5 + 0.5) * rect.width;
+  const sy = (c: number) => (1 - (c * 0.5 + 0.5)) * rect.height;
+  const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+  let best = -1, bestD = 10;
+  bonds3.forEach((b, k) => {
+    const [cax, cay] = renderer.toClip(scene.atoms[b.a].x, scene.atoms[b.a].y);
+    const [cbx, cby] = renderer.toClip(scene.atoms[b.b].x, scene.atoms[b.b].y);
+    const x1 = sx(cax), y1 = sy(cay), x2 = sx(cbx), y2 = sy(cby);
+    const dx = x2 - x1, dy = y2 - y1;
+    const t = Math.max(0, Math.min(1, ((mx - x1) * dx + (my - y1) * dy) / (dx * dx + dy * dy || 1)));
+    const d = Math.hypot(mx - (x1 + t * dx), my - (y1 + t * dy));
+    if (d < bestD) { bestD = d; best = k; }
+  });
+  return best;
+}
+
+function orderAllowed(bonds: Bond[], k: number, order: number): boolean {
+  const b = bonds[k];
+  for (const ai of [b.a, b.b]) {
+    const v = valences[scene.atoms[ai].symbol];
+    if (v === undefined) continue;
+    const sum = bonds.reduce(
+      (s, x, i) => s + (i === k ? 0 : x.a === ai || x.b === ai ? x.order : 0),
+      0,
+    ) + order;
+    if (sum > v + 1e-9) return false;
+  }
+  return true;
+}
+
+function cycleBondOrder(k: number) {
+  const bonds = currentBonds().map((b) => ({ ...b }));
+  const cur = ORDER_CYCLE.indexOf(bonds[k].order);
+  for (let s = 1; s <= ORDER_CYCLE.length; s++) {
+    const cand = ORDER_CYCLE[(cur + s) % ORDER_CYCLE.length];
+    if (orderAllowed(bonds, k, cand)) {
+      bonds[k].order = cand;
+      break;
+    }
+  }
+  scene.bonds = bonds;
+  scene = scene;
+  recompute();
+  scheduleUrl();
+}
+
+function onUp(ev: PointerEvent) {
   if (dragging >= 0 && !moved) selectedAtom = dragging;
   if (panning && !moved) {
-    selectedAtom = -1;
-    renderer.selected = -1;
-    render();
+    const k = pickBond(ev);
+    if (k >= 0) {
+      cycleBondOrder(k);
+    } else {
+      selectedAtom = -1;
+      renderer.selected = -1;
+      render();
+    }
   }
   dragging = -1;
   panning = false;
@@ -308,8 +416,12 @@ function removeSelected() {
   scene.atoms.splice(i, 1);
   if (scene.bonds.length > 0) {
     scene.bonds = scene.bonds
-      .filter(([a, b]) => a !== i && b !== i)
-      .map(([a, b]) => [a > i ? a - 1 : a, b > i ? b - 1 : b] as [number, number]);
+      .filter((b) => b.a !== i && b.b !== i)
+      .map((b) => ({
+        a: b.a > i ? b.a - 1 : b.a,
+        b: b.b > i ? b.b - 1 : b.b,
+        order: b.order,
+      }));
   }
   selectedAtom = -1;
   renderer.selected = -1;
@@ -366,11 +478,26 @@ onMount(async () => {
   renderer = new Renderer(canvas);
   (window as unknown as Record<string, unknown>).__fermiforge = {
     get scene() { return scene; },
+    get bonds() { return bonds3; },
+    get implicitH() { return implicitH(bonds3); },
     renderer,
+    setAtoms(list: Atom[]) {
+      scene.atoms = list;
+      scene.bonds = [];
+      scene = scene;
+      recompute();
+    },
   };
   await init();
   try {
-    models = (await (await fetch("./models.json")).json()).values;
+    const data = (await (await fetch("./models.json")).json()) as {
+      values?: typeof models;
+      bond_lengths?: { values?: unknown[] };
+      valences?: { values?: Record<string, number> };
+    };
+    models = data.values ?? {};
+    bondRefs = data.bond_lengths?.values ?? [];
+    valences = data.valences?.values ?? {};
   } catch { /* offline fallback defaults */ }
   if (location.hash.startsWith("#/s=")) {
     try {
@@ -389,7 +516,7 @@ onMount(async () => {
 <main>
   <header>
     <h1>Fermiforge</h1>
-    <span class="tag">simple Hückel · π system · one electron per atom (labeled approximation)</span>
+    <span class="tag">simple Hückel · π system · bond orders from geometry (labeled approximation)</span>
     <div class="spacer"></div>
     <button on:click={() => (showPalette = !showPalette)}>elements</button>
     <button on:click={() => addAtom("C")}>+ C atom</button>
@@ -435,6 +562,9 @@ onMount(async () => {
       {/each}
       {#if gap !== null}<p class="stat">HOMO–LUMO gap: <strong>{gap.toFixed(3)} eV</strong></p>{/if}
       {#if totalEnergy !== null}<p class="stat">total π energy: <strong>{totalEnergy.toFixed(3)} eV</strong></p>{/if}
+      {#if !energies.length && scene.atoms.length}
+        <p class="stat">no π system — all bonds are single (click a bond to change its order)</p>
+      {/if}
       <h2>model parameters</h2>
       {#each PARAMS as p}
         {@const ov = scene.overrides.find((o) => o.key === p.id)}
@@ -455,7 +585,11 @@ onMount(async () => {
       {/each}
       <p class="note">
         energies are derived values (provenance: α, β from data/models.json,
-        method simple-huckel/linear-in-alpha-beta). Drag atoms; wheel zooms; drag background pans; right-drag (or Shift-drag) rotates in 3D; double-click (or F) resets view; click atom + Delete removes it; link updates live.
+        method simple-huckel/linear-in-alpha-beta). Bond orders come from distances
+        (single/double/triple/aromatic reference lengths, valence-clamped; implicit H in labels).
+        Drag atoms; click a bond to cycle its order; wheel zooms; drag background pans;
+        right-drag (or Shift-drag) rotates in 3D; double-click (or F) resets view;
+        click atom + Delete removes it; link updates live.
       </p>
     </aside>
   </section>

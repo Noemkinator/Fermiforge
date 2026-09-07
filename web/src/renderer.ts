@@ -270,7 +270,7 @@ export class Renderer {
     return [x, y];
   }
 
-  draw(atoms: AtomView[], bonds: [number, number][], lobes: Lobe[]) {
+  draw(atoms: AtomView[], bonds: [number, number, number][], lobes: Lobe[]) {
     const gl = this.gl;
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.clearColor(0.06, 0.07, 0.1, 1);
@@ -278,25 +278,32 @@ export class Renderer {
     this.fit(atoms);
     const aspect = this.canvas.width / this.canvas.height;
 
-    // bonds as screen-space-thick quads, back-to-front depth tint
+    // bonds as screen-space-thick quads; double/triple/aromatic draw parallel lines
     const w2 = this.canvas.width / 2, h2 = this.canvas.height / 2;
-    const lineData = new Float32Array(bonds.length * 12);
+    const lineData = new Float32Array(bonds.length * 36);
     let nverts = 0;
-    for (const [i, j] of bonds) {
+    for (const [i, j, order = 1] of bonds) {
       if (!atoms[i] || !atoms[j]) continue;
       const [ax, ay] = this.project(atoms[i].x, atoms[i].y, atoms[i].z ?? 0);
       const [bx, by] = this.project(atoms[j].x, atoms[j].y, atoms[j].z ?? 0);
       const px1 = ax * w2, py1 = ay * h2, px2 = bx * w2, py2 = by * h2;
       let dx = px2 - px1, dy = py2 - py1;
       const len = Math.hypot(dx, dy) || 1;
-      const nx = (-dy / len) * 1.9, ny = (dx / len) * 1.9;
-      const q = [
-        [px1 + nx, py1 + ny], [px1 - nx, py1 - ny],
-        [px2 + nx, py2 + ny], [px2 - nx, py2 - ny],
-      ].map(([x, y]) => [x / w2, y / h2]);
-      lineData.set([q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1],
-        q[2][0], q[2][1], q[1][0], q[1][1], q[3][0], q[3][1]], nverts * 2);
-      nverts += 6;
+      const ux = -dy / len, uy = dx / len;
+      const offs = order >= 3 ? [-3.4, 0, 3.4] : order >= 2 ? [-2.3, 2.3] : order >= 1.5 ? [-1.7, 1.7] : [0];
+      const hw = order === 1 ? 1.9 : 1.15;
+      for (const off of offs) {
+        const cx1 = px1 + ux * off, cy1 = py1 + uy * off;
+        const cx2 = px2 + ux * off, cy2 = py2 + uy * off;
+        const nx = ux * hw, ny = uy * hw;
+        const q = [
+          [cx1 + nx, cy1 + ny], [cx1 - nx, cy1 - ny],
+          [cx2 + nx, cy2 + ny], [cx2 - nx, cy2 - ny],
+        ].map(([x, y]) => [x / w2, y / h2]);
+        lineData.set([q[0][0], q[0][1], q[1][0], q[1][1], q[2][0], q[2][1],
+          q[2][0], q[2][1], q[1][0], q[1][1], q[3][0], q[3][1]], nverts * 2);
+        nverts += 6;
+      }
     }
     gl.useProgram(this.line);
     gl.bindVertexArray(this.lineVao);
