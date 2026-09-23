@@ -4,7 +4,8 @@
 #![cfg(target_arch = "wasm32")]
 
 use fermiforge_core::wasm::{
-    decode_scene_fragment, encode_scene_fragment, solve_atom_levels, solve_simple_huckel,
+    atom_orbital, decode_scene_fragment, encode_scene_fragment, solve_atom_levels,
+    solve_simple_huckel,
 };
 use wasm_bindgen_test::*;
 
@@ -164,4 +165,56 @@ fn uehling_shift_and_validation_through_wasm() {
         "uehling": true
     }"#;
     assert!(solve_atom_levels(bad).is_err());
+}
+
+/// Orbital density endpoint: hydrogen 1s peak density at the nucleus equals
+/// the analytic (1/a)^3/pi, and the 2p most-probable radius is 4a
+/// (Bethe & Salpeter 1957 §3.1-3.2).
+#[wasm_bindgen_test]
+fn orbital_density_matches_analytic_anchors() {
+    let request = r#"{
+        "z": 1,
+        "mass": {"value": 0.51099895069, "source": "test", "edition": "1"},
+        "n": 1,
+        "kappa": -1,
+        "size": 64
+    }"#;
+    let res: serde_json::Value =
+        serde_json::from_str(&atom_orbital(request).expect("orbital")).unwrap();
+    assert_eq!(res["l"], 0);
+    let a = res["aFm"]["value"].as_f64().unwrap();
+    assert!((a - 52_918.0).abs() / 52_918.0 < 1e-4);
+    let density = res["density"].as_array().unwrap();
+    assert_eq!(density.len(), 64 * 64);
+    let max = density
+        .iter()
+        .map(|v| v.as_f64().unwrap())
+        .fold(0.0f64, f64::max);
+    let exact = 1.0 / (a * a * a * std::f64::consts::PI);
+    // cell centre is 0.5 step = extent/64 away from r=0; 1s falls as e^-2r/a
+    assert!(max < exact && max > 0.9 * exact, "max {max} exact {exact}");
+
+    let p2 = r#"{
+        "z": 1,
+        "mass": {"value": 0.51099895069, "source": "test", "edition": "1"},
+        "n": 2,
+        "kappa": 1,
+        "size": 32
+    }"#;
+    let p2: serde_json::Value = serde_json::from_str(&atom_orbital(p2).expect("orbital")).unwrap();
+    assert_eq!(p2["l"], 1);
+    let peak = p2["peakRfm"]["value"].as_f64().unwrap();
+    assert!(
+        (peak - 4.0 * a).abs() / a < 0.02,
+        "2p peak {peak} vs {}",
+        4.0 * a
+    );
+    // bad kappa is an error, not a panic
+    let bad = r#"{
+        "z": 1,
+        "mass": {"value": 0.51099895069, "source": "test", "edition": "1"},
+        "n": 1,
+        "kappa": 1
+    }"#;
+    assert!(atom_orbital(bad).is_err());
 }

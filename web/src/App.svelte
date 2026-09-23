@@ -1,6 +1,7 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
 import init, {
+  atom_orbital,
   decode_scene_fragment,
   derive_bonded,
   encode_scene_fragment,
@@ -110,6 +111,9 @@ function applyHash(): boolean {
     else atomIso = "def";
     atomReduced = q.get("red") === "1";
     atomUehling = q.get("ueh") === "1";
+    const orb = q.get("orb");
+    const om = orb ? /^(\d+)_(-?\d+)$/.exec(orb) : null;
+    orbSel = om ? { n: parseInt(om[1], 10), kappa: parseInt(om[2], 10) } : null;
     return true;
   }
   view = "huckel";
@@ -223,11 +227,18 @@ function fmtMev(mev: number) {
 }
 
 function atomHash() {
+  const sel = orbSel;
+  const first = atomLevels[0];
+  const orbParam =
+    sel && (!first || sel.n !== first.n || sel.kappa !== first.kappa)
+      ? `&orb=${sel.n}_${sel.kappa}`
+      : "";
   const extra =
     `${atomNucleus === "finite" ? "&nuc=finite" : ""}` +
     `${atomIso !== "def" ? `&iso=${atomIso}` : ""}` +
     `${atomReduced ? "&red=1" : ""}` +
-    `${atomUehling ? "&ueh=1" : ""}`;
+    `${atomUehling ? "&ueh=1" : ""}` +
+    orbParam;
   return `/atom?Z=${atomZ}&lepton=${atomLepton}&n=${atomN}${atomNumeric ? "&num=1" : ""}${extra}`;
 }
 
@@ -262,11 +273,19 @@ function solveAtom() {
     const res = JSON.parse(solve_atom_levels(JSON.stringify(request))) as {
       levels: AtomLevel[];
       lines: AtomLine[];
+      effectiveMass: Provenance;
       method: string;
     };
     atomLevels = res.levels;
     atomLines = res.lines ?? [];
+    atomEffMass = res.effectiveMass ?? null;
     atomMethod = res.method;
+    const sel = orbSel;
+    if (!sel || !res.levels.some((l) => l.n === sel.n && l.kappa === sel.kappa)) {
+      orbSel = res.levels.length ? { n: res.levels[0].n, kappa: res.levels[0].kappa } : null;
+      orbM = 0;
+    }
+    void drawOrbital();
   } catch (e) {
     atomError = String(e);
     atomLevels = [];
@@ -281,6 +300,115 @@ function nistLine(l: AtomLine): Provenance | undefined {
   if (atomZ !== 1 || atomLepton !== "electron") return undefined;
   return lineRefs[`lines/H/${l.to.n}-${l.from.n}/lambda_nm`];
 }
+
+// --- orbital density panel (Schrodinger shape, core/src/orbital.rs) ---
+let orbSel: { n: number; kappa: number } | null = null;
+let orbM = 0;
+let orbPlane: "xz" | "xy" = "xz";
+let orbInfo: { l: number; m: number; extentFm: number; aFm: Provenance; peakRfm: Provenance } | null = null;
+let orbRadial: { r: number[]; p: number[] } | null = null;
+let orbCanvas: HTMLCanvasElement | undefined;
+let atomEffMass: Provenance | null = null;
+
+function lOfKappa(k: number) {
+  return k < 0 ? -k - 1 : k;
+}
+
+function selectLevel(l: { n: number; kappa: number }) {
+  orbSel = { n: l.n, kappa: l.kappa };
+  orbM = Math.min(orbM, lOfKappa(l.kappa));
+  void drawOrbital();
+  clearTimeout(urlTimer);
+  urlTimer = setTimeout(() => setHash(atomHash()), 300);
+}
+
+async function drawOrbital() {
+  if (!orbSel || !atomEffMass) return;
+  await tick();
+  try {
+    const res = JSON.parse(
+      atom_orbital(
+        JSON.stringify({
+          z: atomZ,
+          mass: atomEffMass,
+          n: orbSel.n,
+          kappa: orbSel.kappa,
+          m: orbM,
+          plane: orbPlane,
+          size: 128,
+        }),
+      ),
+    ) as {
+      l: number;
+      m: number;
+      extentFm: number;
+      aFm: Provenance;
+      peakRfm: Provenance;
+      size: number;
+      density: number[];
+      radial: { r: number[]; p: number[] };
+    };
+    orbInfo = { l: res.l, m: res.m, extentFm: res.extentFm, aFm: res.aFm, peakRfm: res.peakRfm };
+    orbRadial = res.radial;
+    const canvas = orbCanvas;
+    if (!canvas) return;
+    const n = res.size;
+    const off = document.createElement("canvas");
+    off.width = n;
+    off.height = n;
+    const octx = off.getContext("2d");
+    const cctx = canvas.getContext("2d");
+    if (!octx || !cctx) return;
+    const img = octx.createImageData(n, n);
+    let rhoMax = 0;
+    for (const v of res.density) if (v > rhoMax) rhoMax = v;
+    const lo = Math.log10(rhoMax) - 8;
+    for (let i = 0; i < res.density.length; i++) {
+      const v = res.density[i];
+      // log colormap: 8 decades, dark navy -> teal -> warm white
+      const t = v > 0 ? Math.min(1, Math.max(0, (Math.log10(v) - lo) / 8)) : 0;
+      const c = t < 0.5 ? t * 2 : 1;
+      const c2 = t >= 0.5 ? (t - 0.5) * 2 : 0;
+      const o = i * 4;
+      img.data[o] = 10 + c * 40 + c2 * 235;
+      img.data[o + 1] = 14 + c * 120 + c2 * 120;
+      img.data[o + 2] = 28 + c * 140 + c2 * 87;
+      img.data[o + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+    cctx.imageSmoothingEnabled = true;
+    cctx.clearRect(0, 0, canvas.width, canvas.height);
+    cctx.drawImage(off, 0, 0, canvas.width, canvas.height);
+    // nucleus + scale bar
+    cctx.fillStyle = "#ffd27f";
+    cctx.beginPath();
+    cctx.arc(canvas.width / 2, canvas.height / 2, 2.5, 0, Math.PI * 2);
+    cctx.fill();
+    const barFm = res.extentFm / 4;
+    const barPx = (barFm / (2 * res.extentFm)) * canvas.width;
+    cctx.strokeStyle = "#dfe3ec";
+    cctx.lineWidth = 2;
+    cctx.beginPath();
+    cctx.moveTo(10, canvas.height - 12);
+    cctx.lineTo(10 + barPx, canvas.height - 12);
+    cctx.stroke();
+    cctx.fillStyle = "#dfe3ec";
+    cctx.font = "11px system-ui";
+    cctx.fillText(`${barFm.toFixed(barFm < 10 ? 2 : 0)} fm`, 12 + barPx, canvas.height - 8);
+  } catch (e) {
+    atomError = String(e);
+  }
+}
+
+function radialPoints(): string {
+  const rd = orbRadial;
+  if (!rd) return "";
+  const pMax = Math.max(...rd.p);
+  const rMax = rd.r[rd.r.length - 1];
+  if (!(pMax > 0)) return "";
+  return rd.r.map((r, i) => `${(280 * r) / rMax},${72 - (66 * rd.p[i]) / pMax}`).join(" ");
+}
+
 
 function toggleView() {
   view = view === "huckel" ? "atom" : "huckel";
@@ -919,16 +1047,17 @@ onMount(async () => {
         <label class="chk"><input type="checkbox" bind:checked={atomUehling} on:change={solveAtom} /> Uehling VP</label>
       </div>
       {#if atomError}<div class="error">{atomError}</div>{/if}
-      <h2>binding energies ({atomMethod || "solving…"})</h2>
+      <h2>binding energies ({atomMethod || "solving…"}) — click a level for its orbital</h2>
       {#each atomLevels as l (l.n + "/" + l.kappa)}
-        <div class="atom-level">
+        {@const sel = orbSel && orbSel.n === l.n && orbSel.kappa === l.kappa}
+        <button class="atom-level" class:sel on:click={() => selectLevel(l)}>
           <span class="lbl">{levelLabel(l.n, l.kappa)}</span>
           <span class="val">{fmtMev(l.binding.value)}</span>
           <span class="tot">E = {fmtMev(l.e.value)}</span>
           {#if (atomNucleus === "finite" || atomUehling) && l.shift.value !== 0}
             <span class="dshift">Δ = {fmtMev(l.shift.value)}</span>
           {/if}
-        </div>
+        </button>
       {/each}
       {#if atomLines.length}
         <h2>emission lines n+1 → n (p1/2 → s1/2)</h2>
@@ -944,6 +1073,37 @@ onMount(async () => {
           </div>
         {/each}
       {/if}
+      {#if orbSel && orbInfo}
+        <h2>orbital {levelLabel(orbSel.n, orbSel.kappa)} · |m| = {orbInfo.m} · density |ψ|² (log, 8 decades)</h2>
+        <div class="orbwrap">
+          <canvas bind:this={orbCanvas} width="280" height="280" class="orbcanvas"></canvas>
+          <div class="orbside">
+            <div class="atom-controls">
+              <label>plane
+                <select bind:value={orbPlane} on:change={drawOrbital}>
+                  <option value="xz">xz (through z)</option>
+                  <option value="xy">xy (equator)</option>
+                </select>
+              </label>
+              <label>|m|
+                <select bind:value={orbM} on:change={drawOrbital}>
+                  {#each Array(orbInfo.l + 1) as _, i (i)}
+                    <option value={i}>{i}</option>
+                  {/each}
+                </select>
+              </label>
+            </div>
+            <svg viewBox="0 0 280 76" class="orbradial" role="img" aria-label="radial distribution">
+              <polyline fill="none" stroke="#6ea8ff" stroke-width="1.5" points={radialPoints()} />
+              <line x1="0" y1="72" x2="280" y2="72" stroke="#333d52" />
+            </svg>
+            <div class="tot">
+              4πr²R² up to {orbInfo.extentFm.toFixed(0)} fm · most probable r =
+              {orbInfo.peakRfm.value.toFixed(2)} fm · a = {orbInfo.aFm.value.toFixed(2)} fm
+            </div>
+          </div>
+        </div>
+      {/if}
       <p class="note">
         hydrogen-like {atomLepton} on a {atomNucleus === "finite" ? "two-parameter Fermi" : "point"}
         nucleus Z={atomZ}; lepton mass from {atomMassInfo()}
@@ -954,6 +1114,9 @@ onMount(async () => {
         (Uehling 1935; validated against the −1.122e-7 eV 2S value, Greiner &amp; Reinhardt).
         Reduced mass μ = m·M/(m+M), M = Z·m_p + N·m_n (binding neglected).
         2pF solves numerically (n ≤ 3). λ = hc/dE, hc exact (SI-2019); NIST ASD v5.12 comparison.
+        Orbital panel: non-relativistic Schrödinger density (Bethe &amp; Salpeter 1957 §3.1,
+        normalized; validated against analytic 1s/2p anchors in core tests) — shape
+        corrections O((Zα)²) not included.
       </p>
     </section>
   {/if}
@@ -1019,6 +1182,13 @@ onMount(async () => {
   .atom-controls .chk { display: flex; align-items: center; gap: 5px; }
   .elsym { font-size: 22px; font-weight: 600; color: #6ea8ff; min-width: 30px; }
   .atom-level { display: flex; gap: 14px; align-items: baseline; padding: 3px 6px; border-bottom: 1px solid #1d222e; font-variant-numeric: tabular-nums; }
+  button.atom-level { width: 100%; background: transparent; border: 1px solid transparent; border-bottom-color: #1d222e; border-radius: 0; text-align: left; font: inherit; color: inherit; }
+  button.atom-level:hover { background: #1a2030; }
+  button.atom-level.sel { outline: 1px solid #6ea8ff; background: #18202f; }
+  .orbwrap { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; margin: 6px 0; }
+  .orbcanvas { background: #0a0d16; border: 1px solid #333d52; border-radius: 6px; width: 280px; height: 280px; }
+  .orbside { flex: 1; min-width: 240px; }
+  .orbradial { width: 280px; height: 76px; background: #0a0d16; border: 1px solid #333d52; border-radius: 6px; }
   .atom-level .lbl { min-width: 56px; color: #9aa3b8; }
   .atom-level .val { min-width: 120px; }
   .atom-level .tot { color: #8b93a7; font-size: 12px; }

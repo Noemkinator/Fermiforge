@@ -392,6 +392,99 @@ pub fn solve_atom_levels(request_json: &str) -> Result<String, JsValue> {
 
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct OrbitalRequest {
+    z: u32,
+    mass: Value,
+    n: u32,
+    kappa: i32,
+    /// |m| orbital projection quantum number (default 0).
+    #[serde(default)]
+    m: Option<u32>,
+    /// Slice plane through the nucleus: "xz" (default) or "xy".
+    #[serde(default)]
+    plane: Option<String>,
+    /// Grid edge length in cells (default 128, max 192).
+    #[serde(default)]
+    size: Option<usize>,
+}
+
+/// Probability density of a hydrogen-like orbital (visualization helper).
+/// Input `{ z, mass: Value, n, kappa, m?, plane?, size? }`. Output
+/// `{ l, m, plane, size, extentFm, aFm: Value, peakRfm: Value,
+/// density: [size*size fm^-3 row-major], radial: { r: [...], p: [...] },
+/// method }`. Non-relativistic Schrodinger shape (Bethe & Salpeter 1957
+/// §3.1); relativistic shape corrections O((Z alpha)^2) not included.
+#[wasm_bindgen]
+pub fn atom_orbital(request_json: &str) -> Result<String, JsValue> {
+    let req: OrbitalRequest = serde_json::from_str(request_json).map_err(to_js)?;
+    if req.z == 0 || req.z > 137 {
+        return Err(to_js("Z must be 1..=137"));
+    }
+    if req.mass.value <= 0.0 {
+        return Err(to_js("lepton mass must be positive"));
+    }
+    if req.n == 0 || req.n > 7 {
+        return Err(to_js("n must be 1..=7 for visualization"));
+    }
+    let l = if req.kappa < 0 {
+        (-req.kappa - 1) as u32
+    } else {
+        req.kappa as u32
+    };
+    if l >= req.n {
+        return Err(to_js("kappa inconsistent with n"));
+    }
+    let m = req.m.unwrap_or(0).min(l);
+    let plane = match req.plane.as_deref() {
+        None | Some("xz") => "xz",
+        Some("xy") => "xy",
+        Some(other) => return Err(to_js(format!("unknown plane '{other}'"))),
+    };
+    let size = req.size.unwrap_or(128).clamp(32, 192);
+
+    let a = crate::orbital::bohr_radius_fm(req.z, req.mass.value);
+    // a and the most-probable radius scale as 1/mass: propagate through the
+    // provenance-tracked mass input.
+    let a_value = Value::derive(
+        &|x: &[f64]| crate::dirac_atom::HBARC / (req.z as f64 * crate::dirac_atom::ALPHA * x[0]),
+        &[&req.mass],
+        "Bohr radius hbar/(Z alpha m)",
+    )
+    .map_err(to_js)?;
+    let peak = crate::orbital::peak_radius(req.n, l, a);
+    let peak_value = Value::derive(
+        &|x: &[f64]| peak * req.mass.value / x[0],
+        &[&req.mass],
+        "outer maximum of 4 pi r^2 R^2 (scales as 1/m)",
+    )
+    .map_err(to_js)?;
+
+    let (density, extent) = crate::orbital::slice_grid(req.n, l, m, a, plane, size);
+    let r_steps = 240usize;
+    let mut r = Vec::with_capacity(r_steps + 1);
+    let mut p = Vec::with_capacity(r_steps + 1);
+    for i in 0..=r_steps {
+        let rr = extent * i as f64 / r_steps as f64;
+        r.push(rr);
+        p.push(crate::orbital::radial_distribution(req.n, l, a, rr));
+    }
+    serde_json::to_string(&serde_json::json!({
+        "l": l,
+        "m": m,
+        "plane": plane,
+        "size": size,
+        "extentFm": extent,
+        "aFm": a_value,
+        "peakRfm": peak_value,
+        "density": density,
+        "radial": { "r": r, "p": p },
+        "method": "schrodinger-coulomb density (Bethe & Salpeter 1957 §3.1)",
+    }))
+    .map_err(to_js)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HuckelRequest {
     n_atoms: usize,
     bonds: Vec<[usize; 2]>,

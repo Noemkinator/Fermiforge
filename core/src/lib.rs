@@ -8,6 +8,7 @@
 pub mod bonding;
 pub mod dirac_atom;
 pub mod huckel;
+pub mod orbital;
 pub mod state;
 pub mod value;
 
