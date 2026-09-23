@@ -10,9 +10,13 @@ parameters are editable data, so you can explore not only real physics but
 scene state is shareable through the URL — no server, no accounts, no data
 storage.
 
-**Status:** milestone M0 (skeleton): physics core crate with provenance-tracked
-values, scene state + URL codec, data ingest pipeline and CI. The web app
-arrives in M1. See [PLAN.md](PLAN.md) for the full strategy — it is the
+**Live demo:** https://noemkinator.github.io/Fermiforge/
+
+**Status:** milestones M0–M4: provenance-tracked physics core; interactive
+2D/3D molecule builder with Hückel π solver, bond orders and live URL sharing;
+hydrogen-like atom view (Dirac levels, finite 2pF nuclei, Uehling vacuum
+polarization, reduced mass, emission lines vs NIST) with clickable orbital
+density panels. See [PLAN.md](PLAN.md) for the full strategy — it is the
 single source of truth for human and AI contributors alike.
 
 ## Development setup
@@ -31,7 +35,7 @@ python -m ingest.generate --offline  # regenerate data/ from pinned fixtures
 - `core/` — Rust: all physics, zero UI code, zero hardcoded constants
 - `data/` — immutable, provenance-tracked JSON snapshots (generated, never edited)
 - `ingest/` — Python build-time pipeline: fetch → normalize → validate → PR
-- `web/` — Svelte/TS frontend (M1)
+- `web/` — Svelte/TS frontend (WASM bindings, WebGL2 canvas)
 
 ## Acknowledgments
 
