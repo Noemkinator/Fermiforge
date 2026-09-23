@@ -191,8 +191,14 @@ fn orbital_density_matches_analytic_anchors() {
         .map(|v| v.as_f64().unwrap())
         .fold(0.0f64, f64::max);
     let exact = 1.0 / (a * a * a * std::f64::consts::PI);
-    // cell centre is 0.5 step = extent/64 away from r=0; 1s falls as e^-2r/a
-    assert!(max < exact && max > 0.9 * exact, "max {max} exact {exact}");
+    // grid half-width is extent = 10a, cell centres at (i+0.5)·20a/64; the
+    // nearest one sits r = sqrt(2)·10a/64 = 0.221a off the nucleus and the
+    // 1s density falls as e^-2r/a (Bethe & Salpeter 1957 §3.1)
+    let expected = exact * (-2.0 * (2.0f64).sqrt() * 10.0 / 64.0).exp();
+    assert!(
+        max < exact && (max - expected).abs() / expected < 0.05,
+        "max {max} expected {expected} exact {exact}"
+    );
 
     let p2 = r#"{
         "z": 1,
